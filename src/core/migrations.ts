@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 
-export const LATEST_SCHEMA_VERSION = 2;
+export const LATEST_SCHEMA_VERSION = 3;
 
 const migrations = [
   {
@@ -101,6 +101,31 @@ const migrations = [
         details_json TEXT NOT NULL CHECK(json_valid(details_json)),
         checked_at TEXT NOT NULL
       );
+    `,
+  },
+  {
+    version: 3,
+    sql: `
+      CREATE TABLE handoffs (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+        task_id TEXT REFERENCES tasks(id) ON DELETE RESTRICT,
+        provider TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('awaiting_response','ready_to_apply','applying','verified','failed','recovery_required')),
+        objective TEXT NOT NULL,
+        bundle_path TEXT NOT NULL,
+        base_head TEXT,
+        base_branch TEXT,
+        response_json TEXT CHECK(response_json IS NULL OR json_valid(response_json)),
+        preview_json TEXT CHECK(preview_json IS NULL OR json_valid(preview_json)),
+        checkpoint_json TEXT CHECK(checkpoint_json IS NULL OR json_valid(checkpoint_json)),
+        verification_json TEXT CHECK(verification_json IS NULL OR json_valid(verification_json)),
+        error TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX handoffs_project_id_idx ON handoffs(project_id, created_at);
+      CREATE INDEX handoffs_status_idx ON handoffs(status);
     `,
   },
 ] as const;

@@ -5,5 +5,5 @@
     "outDir": "dist/server",
     "sourceMap": true
   },
-  "include": ["src/core/**/*.ts", "src/server/**/*.ts"]
+  "include": ["src/core/**/*.ts", "src/handoff/**/*.ts", "src/server/**/*.ts"]
 }

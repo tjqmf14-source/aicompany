@@ -8,7 +8,7 @@ export function fixture(): { path: string; git: (...args: string[]) => string; c
   const path = mkdtempSync(join(root, 'ai-company-core-'));
   const git = (...args: string[]) => execFileSync('git', args, { cwd: path, encoding: 'utf8', windowsHide: true });
   git('init', '-b', 'main');
-  writeFileSync(join(path, '.git', 'info', 'exclude'), '*.sqlite*\n');
+  writeFileSync(join(path, '.git', 'info', 'exclude'), '*.sqlite*\n.ai-company/\n');
   const commit = () => {
     git('add', '.');
     git('-c', 'user.name=Core Test', '-c', 'user.email=core@example.invalid', 'commit', '-m', 'fixture');

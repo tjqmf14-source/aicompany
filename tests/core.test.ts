@@ -8,15 +8,16 @@ import { schemaVersion, migrate } from '../src/core/migrations.js';
 import { CoreError } from '../src/core/domain.js';
 import { committedFixture, fixture } from './helpers.js';
 
-test('SQLite migration 1 to 2 preserves records and is idempotent', () => {
+test('SQLite migration 1 to 3 preserves records and is idempotent', () => {
   const work = fixture();
   try {
     const db = new CoreDatabase(join(work.path, 'state.sqlite'), false);
     assert.equal(migrate(db.db, 1), 1);
     db.db.prepare('INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?)').run('p1', 'saved', work.path, 'draft', 1, 't', 't');
-    assert.equal(migrate(db.db), 2);
-    assert.equal(migrate(db.db), 2);
-    assert.equal(schemaVersion(db.db), 2);
+    assert.equal(migrate(db.db, 2), 2);
+    assert.equal(migrate(db.db), 3);
+    assert.equal(migrate(db.db), 3);
+    assert.equal(schemaVersion(db.db), 3);
     assert.equal((db.db.prepare('SELECT name FROM projects WHERE id = ?').get('p1') as { name: string }).name, 'saved');
     assert.equal((db.db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number }).foreign_keys, 1);
     db.close();

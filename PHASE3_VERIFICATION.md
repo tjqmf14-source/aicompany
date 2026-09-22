@@ -35,10 +35,28 @@ Job: `106736524720`
 
 The 22-test run includes the new Phase 3 Codex provider/recovery tests plus the existing Core, Git, Handoff and HTTP API suites, so it serves as the regression run for this phase.
 
-## Main branch
+## Main integration
 
-`main` remained at `7e54d3f7c6bcd39a6bf929ca5e487db07ebf4009` during Phase 3 QA and was not modified or merged.
+Phase 3 was merged from `qa/phase3-codex-provider` with the verified branch HEAD `11568bfd1c6e12d690bc9c13cab13e196d99b3da`.
+
+- Merge commit: `84436508301c555be269c5eb52a4df2f6caeb944`
+- Previous main: `7e54d3f7c6bcd39a6bf929ca5e487db07ebf4009`
+- Merge method: normal merge commit; no force push
+- Main CI enablement commit: `cef224ad14f996681b4f01a10923cdab82201708`
+- Main GitHub Actions run: `35727362090`
+- Main verification job: `106744165990`
+
+Main verification result:
+
+- `npm ci`: PASS
+- `npm run typecheck`: PASS
+- `npm run lint`: PASS
+- `npm test`: PASS — 22 tests, 22 passed, 0 failed
+- `npm run build`: PASS
+- `npm audit --audit-level=high`: PASS — 0 vulnerabilities
+
+The workflow originally triggered pushes only for `qa/**`. To execute the required post-merge main verification, `main` was added to the existing push branch list without changing product code, tests, compiler rules, lint rules, or validation commands.
 
 ## Final-gate rule
 
-This verification record is documentation-only. The final QA commit that adds this file must itself pass the full GitHub Actions workflow before Phase 3 is reported as `VERIFIED` or considered eligible for merge to `main`.
+This verification-record update is documentation-only. Its own main push must also pass the unchanged full GitHub Actions workflow before Phase 3 is closed as `MAIN INTEGRATION VERIFIED`.

@@ -44,3 +44,8 @@ From the project root, run `npm ci`, then `npm run dev:server` and `npm run dev:
 ## Phase 2 extension
 
 Phase 2 adds `src/handoff` and SQLite migration 3 without replacing the Phase 1 Core. `HandoffProvider` is an adapter boundary; the included `ManualHandoffProvider` writes packet files and reads a user-saved High response. The `HandoffCore` service validates responses, paths and Git patches, saves preflight and preapply checkpoints, applies an explicitly reviewed patch, runs the four existing validation scripts, and either records queued follow-up Tasks or safely restores touched files. The manual CLI is the mutation surface; no High API call or Codex Provider exists. See [HANDOFF_PROTOCOL.md](./HANDOFF_PROTOCOL.md) for the exact state machine and recovery rules.
+
+
+## Phase 3 extension
+
+Phase 3 adds `src/codex` and SQLite migration 4. The Codex provider uses the locally installed App Server with ChatGPT auth only, reads the Codex rate-limit state before dispatch, and stores execution/thread/turn references in SQLite. Rate-limit or interruption paths capture a Git checkpoint and automatically create a Phase 2 Handoff bundle instead of failing the project. A saved thread is resumed only when the current Git snapshot exactly matches the interruption checkpoint; otherwise a clean changed repository starts a new thread and a changed dirty repository is blocked for review. See [PHASE3_PROTOCOL.md](./PHASE3_PROTOCOL.md).

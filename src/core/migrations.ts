@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 
-export const LATEST_SCHEMA_VERSION = 3;
+export const LATEST_SCHEMA_VERSION = 4;
 
 const migrations = [
   {
@@ -126,6 +126,36 @@ const migrations = [
       );
       CREATE INDEX handoffs_project_id_idx ON handoffs(project_id, created_at);
       CREATE INDEX handoffs_status_idx ON handoffs(status);
+    `,
+  },
+  {
+    version: 4,
+    sql: `
+      CREATE TABLE codex_executions (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+        task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE RESTRICT,
+        run_id TEXT REFERENCES runs(id) ON DELETE RESTRICT,
+        provider TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('checking','running','high_ready','completed','failed','recovery_required')),
+        objective TEXT NOT NULL,
+        thread_id TEXT,
+        turn_id TEXT,
+        model TEXT,
+        effort TEXT CHECK(effort IS NULL OR effort IN ('low','medium','high','xhigh','max')),
+        base_head TEXT,
+        base_branch TEXT,
+        checkpoint_id TEXT REFERENCES checkpoints(id) ON DELETE RESTRICT,
+        handoff_id TEXT REFERENCES handoffs(id) ON DELETE RESTRICT,
+        rate_limit_json TEXT CHECK(rate_limit_json IS NULL OR json_valid(rate_limit_json)),
+        last_event_json TEXT CHECK(last_event_json IS NULL OR json_valid(last_event_json)),
+        error TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX codex_executions_project_id_idx ON codex_executions(project_id, created_at);
+      CREATE INDEX codex_executions_task_id_idx ON codex_executions(task_id, created_at);
+      CREATE INDEX codex_executions_status_idx ON codex_executions(status);
     `,
   },
 ] as const;

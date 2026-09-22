@@ -171,7 +171,7 @@ export class CodexAppServerProvider implements CodexExecutionProvider {
 
       if (threadId) {
         try {
-          const resumed = this.resumeThread(client, threadId, request.cwd);
+          const resumed = await this.resumeThread(client, threadId, request.cwd);
           threadId = asString(asObject(resumed.thread).id) ?? threadId;
           reusedThread = true;
         } catch (error) {

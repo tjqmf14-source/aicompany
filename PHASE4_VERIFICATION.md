@@ -161,6 +161,28 @@ Final result:
 
 이 결과로 Phase 4 구현 및 QA 기준은 충족한다. Dashboard load 테스트는 Vite 개발 서버를 실제 기동해 index와 `src/web/main.tsx` 변환 응답을 확인한다. 이 검증 메타데이터를 기록하는 문서 전용 커밋도 동일한 GitHub Actions workflow를 추가로 통과해야 branch 최종 상태를 확정한다.
 
-## Main status
+## Main integration
 
-`main`은 Phase 4 작업에서 수정하거나 merge하지 않는다. 전체 최종 QA가 PASS한 뒤에도 이번 단계에서는 main 반영 가능 여부만 보고한다.
+Phase 4는 검증된 `feature/phase4-dashboard` branch HEAD `a7608a1db9e4f62350f26ba7aaf32eb58f68774f`에서 main으로 병합했다.
+
+- Previous main: `55f0065779036a8d27328f4a203a79951387d9ac`
+- Phase 4 merge commit: `1e99c09a293093556d09d5738d95d75216446f31`
+- Merge method: normal merge commit
+- Force push: not used
+- Main GitHub Actions: Run #36
+- Main Run ID: `35742766732`
+- Main Job ID: `106796490267`
+
+Main verification result:
+
+- `npm ci`: PASS
+- `git diff --check`: PASS
+- `npm run typecheck`: PASS
+- `npm run lint`: PASS
+- Phase 4 tests: PASS — 15/15
+- Phase 1~3 regression: PASS — 22/22
+- `npm test`: PASS — 37/37
+- `npm run build`: PASS
+- `npm audit --audit-level=high`: PASS — 0 vulnerabilities
+
+이 문서 갱신 커밋 자체도 main GitHub Actions 전체 체인을 다시 통과해야 `PHASE 4 CLOSED / MAIN INTEGRATION VERIFIED`로 최종 확정한다.

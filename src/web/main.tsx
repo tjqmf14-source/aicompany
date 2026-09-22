@@ -29,7 +29,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   });
   const text = await response.text();
-  let data: unknown = null;
+  let data: unknown;
   try { data = text ? JSON.parse(text) as unknown : null; } catch { data = text; }
   if (!response.ok) {
     const message = data && typeof data === 'object' && !Array.isArray(data) && 'message' in data

@@ -88,6 +88,7 @@ function App() {
   const [highResponse, setHighResponse] = useState('');
   const [settings, setSettings] = useState<DashboardClientSettings>(() => readClientSettings(window.localStorage));
   const [codexLive, setCodexLive] = useState<string>('NOT_CHECKED');
+  const [codexAuth, setCodexAuth] = useState<boolean | null>(null);
 
   const refreshProjects = useCallback(async () => {
     const rows = await request<DashboardProjectSummary[]>('/api/dashboard/projects');
@@ -126,6 +127,8 @@ function App() {
   useEffect(() => {
     if (!selected) return;
     writeSelectedProject(window.localStorage, selected);
+    setCodexLive('NOT_CHECKED');
+    setCodexAuth(null);
     setLoading(true);
     void refreshState()
       .then(() => { setConnected(true); setError(''); })
@@ -201,12 +204,16 @@ function App() {
     try {
       const result = await request<{ state: string; reason: string | null; authenticated: boolean | null }>(`/api/dashboard/projects/${state.project.id}/codex/check`);
       setCodexLive(result.state.toUpperCase());
+      setCodexAuth(result.authenticated);
       if (result.reason) setError(result.reason);
     } catch (caught) {
       setCodexLive('UNAVAILABLE');
+      setCodexAuth(null);
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally { setBusy(false); }
   };
+
+  const effectiveCodexAuth = codexAuth ?? state?.codex.authenticated ?? null;
 
   const saveSettings = (next: DashboardClientSettings) => {
     setSettings(next);
@@ -418,7 +425,7 @@ function App() {
           <div className="panel-heading"><h2>Codex Provider</h2><Badge value={state.codex.status} /></div>
           <div className="metrics">
             <Metric label="Installed" value={state.codex.installed ? 'YES' : 'NO'} />
-            <Metric label="Authenticated" value={state.codex.authenticated === null ? 'NOT CHECKED' : state.codex.authenticated ? 'YES' : 'NO'} />
+            <Metric label="Authenticated" value={effectiveCodexAuth === null ? 'NOT CHECKED' : effectiveCodexAuth ? 'YES' : 'NO'} />
             <Metric label="Live availability" value={<Badge value={codexLive} />} />
             <Metric label="Provider" value={state.codex.provider} />
             <Metric label="Thread ID" value={state.codex.threadId ?? '없음'} mono />

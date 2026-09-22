@@ -87,7 +87,7 @@ Dashboard는 기존 Core/Handoff/Codex 메서드를 사용한다. Phase 4에서 
 
 다음 15개 테스트를 `tests/dashboard.test.ts`에 구현했다.
 
-1. Dashboard load
+1. Dashboard load — 실제 Vite server 기동 및 Dashboard entry module transform 확인
 2. Project list
 3. Project detail
 4. Task list
@@ -142,10 +142,10 @@ GitHub Actions Run #29 (`35733433727`) 결과:
 
 ## Final QA gate
 
-Final QA Commit: `b7440e0f43265dcff7ceddd242fb2ef40c174ed0`
-GitHub Actions: Run #31
-Run ID: `35733881445`
-Job ID: `106766022702`
+Final QA Code Commit: `96c0d4dbd0321e803285b508e898d28d0c73a880`
+GitHub Actions: Run #34
+Run ID: `35734337282`
+Job ID: `106767582513`
 
 Final result:
 
@@ -159,7 +159,7 @@ Final result:
 - `npm run build`: PASS
 - `npm audit --audit-level=high`: PASS — 0 vulnerabilities
 
-이 결과로 Phase 4 구현 및 QA 기준은 충족한다. 이 검증 메타데이터를 기록하는 문서 전용 커밋도 동일한 GitHub Actions workflow를 추가로 통과해야 branch 최종 상태를 확정한다.
+이 결과로 Phase 4 구현 및 QA 기준은 충족한다. Dashboard load 테스트는 Vite 개발 서버를 실제 기동해 index와 `src/web/main.tsx` 변환 응답을 확인한다. 이 검증 메타데이터를 기록하는 문서 전용 커밋도 동일한 GitHub Actions workflow를 추가로 통과해야 branch 최종 상태를 확정한다.
 
 ## Main status
 

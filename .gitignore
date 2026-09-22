@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.ai-company/
+.env
+.env.*
+!.env.example
+tests/phase0_workspace/
+tests/.tmp/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

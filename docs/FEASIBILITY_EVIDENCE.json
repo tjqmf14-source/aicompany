@@ -1,0 +1,183 @@
+{
+  "timestamp": "2026-09-22T10:26:38.611Z",
+  "node": "v24.19.0",
+  "workspace": "D:\\AI_company\\tests\\phase0_workspace",
+  "codexJsPresent": true,
+  "checks": {
+    "fixture": {
+      "note": "isolated dependency-free workspace created",
+      "status": "PASS"
+    },
+    "app_server_start_initialize": {
+      "pid": 32396,
+      "protocol": [
+        "userAgent",
+        "codexHome",
+        "platformFamily",
+        "platformOs"
+      ],
+      "note": "initialize response and initialized notification sent",
+      "status": "PASS"
+    },
+    "account_auth": {
+      "mode": "chatgpt",
+      "plan": "plus",
+      "note": "read-only account state; identifiers omitted",
+      "status": "PASS"
+    },
+    "model_list_reasoning": {
+      "count": 4,
+      "selectedModel": "gpt-5.6-luna",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "note": "available catalog and reasoning efforts returned",
+      "status": "PASS"
+    },
+    "skills_discovery": {
+      "count": 284,
+      "examples": [
+        "2d-pixel-perfect",
+        "accessibility-design",
+        "agent-workflows",
+        "ai-integration",
+        "airtable:airtable-cli",
+        "airtable:airtable-filters",
+        "airtable:airtable-overview",
+        "api-integration"
+      ],
+      "errors": 0,
+      "note": "actual app-server skill catalog",
+      "status": "PASS"
+    },
+    "mcp_capability": {
+      "count": 10,
+      "keys": [
+        "data",
+        "nextCursor"
+      ],
+      "names": [
+        "apify",
+        "codex_app",
+        "codex_apps",
+        "cua_repl",
+        "gemini",
+        "local_comfyui",
+        "mobbin",
+        "node_repl",
+        "openai-api-key-local-confirmation",
+        "upbit"
+      ],
+      "note": "status API returned; paid servers disabled for probe",
+      "status": "PASS"
+    },
+    "usage_rate_limit": {
+      "limitIds": [
+        "codex"
+      ],
+      "windows": {
+        "codex": {
+          "primaryUsedPercent": 26,
+          "secondaryUsedPercent": 83,
+          "rateLimitReachedType": null
+        }
+      },
+      "note": "read-only ChatGPT subscription limit status",
+      "status": "PASS"
+    },
+    "command_safe_execution": {
+      "exitCode": 0,
+      "stdout": "phase0-safe-command-ok",
+      "note": "read-only sandbox command",
+      "status": "PASS"
+    },
+    "thread_start": {
+      "threadId": "01a0c8a7-45fe-7941-a590-735b045cf71f",
+      "sessionId": "01a0c8a7-45fe-7941-a590-735b045cf71f",
+      "note": "persistent test thread started",
+      "status": "PASS"
+    },
+    "turn_start_file_edit_stream": {
+      "turnId": "01a0c8a7-47b6-7190-b1f0-becda50b6495",
+      "turnStatus": "completed",
+      "fileContent": "phase0-seed\nverified-by-codex",
+      "eventMethods": [
+        "mcpServer/startupStatus/updated",
+        "thread/status/changed",
+        "turn/started",
+        "warning",
+        "item/started",
+        "item/completed",
+        "item/agentMessage/delta",
+        "item/commandExecution/outputDelta",
+        "thread/tokenUsage/updated",
+        "account/rateLimits/updated",
+        "turn/diff/updated",
+        "turn/completed"
+      ],
+      "note": "agent read and modified fixture; streaming notifications captured",
+      "status": "PASS"
+    },
+    "build_test": {
+      "buildExit": 0,
+      "testExit": 0,
+      "buildOutputMatches": true,
+      "note": "dependency-free npm build/test",
+      "status": "PASS"
+    },
+    "thread_read": {
+      "threadId": "01a0c8a7-45fe-7941-a590-735b045cf71f",
+      "turns": 1,
+      "runtimeStatus": "idle",
+      "note": "persisted turn read without resume",
+      "status": "PASS"
+    },
+    "process_restart_recovery": {
+      "firstPid": 32396,
+      "secondPid": 29820,
+      "recoveredTurns": 1,
+      "resumedThreadId": "01a0c8a7-45fe-7941-a590-735b045cf71f",
+      "note": "new process read and resumed prior thread",
+      "status": "PASS"
+    },
+    "turn_interrupt": {
+      "turnId": "01a0c8a7-89d4-7373-b84f-98d21cd0af23",
+      "turnStatus": "interrupted",
+      "note": "active turn interrupted and final event observed",
+      "status": "PASS"
+    },
+    "mcp_tool_call": {
+      "status": "PASS",
+      "server": "node_repl",
+      "tool": "js",
+      "output": "phase0-mcp-ok",
+      "note": "mcpServer/tool/call returned free local JS smoke"
+    },
+    "usage_activity": {
+      "status": "PASS",
+      "summaryFields": [
+        "lifetimeTokens",
+        "peakDailyTokens",
+        "longestRunningTurnSec",
+        "currentStreakDays",
+        "longestStreakDays"
+      ],
+      "dailyBucketsPresent": true,
+      "note": "read-only token-activity summary returned; values omitted"
+    },
+    "workspace_read": {
+      "status": "PASS",
+      "method": "command/exec",
+      "exitCode": 0,
+      "contentMarkers": [
+        "phase0-seed",
+        "verified-by-codex"
+      ]
+    }
+  },
+  "errors": []
+}

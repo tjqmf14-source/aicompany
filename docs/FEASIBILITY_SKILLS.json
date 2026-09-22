@@ -1,0 +1,616 @@
+{
+  "count": 122,
+  "errors": [],
+  "skills": [
+    {
+      "name": "2d-pixel-perfect",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\2d-pixel-perfect\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "accessibility-design",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\accessibility-design\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "agent-workflows",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\agent-workflows\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "ai-integration",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\ai-integration\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "api-integration",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\api-integration\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "architecture",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\architecture\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "audio-setup-mixers",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\audio-setup-mixers\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "avengers",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\avengers\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "backend-services",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\backend-services\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "brainstorming",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\brainstorming\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "browser:control-in-app-browser",
+      "path": "C:\\Users\\tjqmf\\.codex\\plugins\\cache\\openai-bundled\\browser\\26.915.31945\\skills\\control-in-app-browser\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "build-live-game",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\build-live-game\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "build-release",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\build-release\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "chatgpt-apps",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\chatgpt-apps\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "chrome:control-chrome",
+      "path": "C:\\Users\\tjqmf\\.codex\\plugins\\cache\\openai-bundled\\chrome\\26.915.31945\\skills\\control-chrome\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "cli-creator",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\cli-creator\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "cloudflare-deploy",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\cloudflare-deploy\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "code-review",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\code-review\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "computer-use:computer-use",
+      "path": "C:\\Users\\tjqmf\\.codex\\plugins\\cache\\openai-bundled\\computer-use\\26.915.31945\\skills\\computer-use\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "context-efficiency",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\context-efficiency\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "database-data",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\database-data\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "debugging",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\debugging\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "define-goal",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\define-goal\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "dependency-management",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\dependency-management\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "design-system",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\design-system\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "design-taste-frontend",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\taste-skill\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "design-to-code",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\design-to-code\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "desktop-windows",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\desktop-windows\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "documents:documents",
+      "path": "C:\\Users\\tjqmf\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.905.11957\\skills\\documents\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "figma",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\figma\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "figma-code-connect-components",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\figma-code-connect-components\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "figma-create-design-system-rules",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\figma-create-design-system-rules\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "figma-create-new-file",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\figma-create-new-file\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "figma-generate-design",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\figma-generate-design\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "figma-generate-library",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\figma-generate-library\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "figma-implement-design",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\figma-implement-design\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "figma-use",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\figma-use\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "find-skills",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\find-skills\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "frontend-ui",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\frontend-ui\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "generate-editor-search-query",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\generate-editor-search-query\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "gh-address-comments",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\gh-address-comments\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "gh-fix-ci",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\gh-fix-ci\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "github-actions-ci",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\github-actions-ci\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "hatch-pet",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\hatch-pet\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "implement-in-app-purchases",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\implement-in-app-purchases\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "implementing-features",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\implementing-features\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "information-architecture",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\information-architecture\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "initialize-ai-navigation",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\initialize-ai-navigation\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "interaction-design",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\interaction-design\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "jupyter-notebook",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\jupyter-notebook\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "levelplay-unity-integration",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\levelplay-unity-integration\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "linear",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\linear\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "localization",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\localization\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "manage-sprite-atlas",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\manage-sprite-atlas\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "migrate-birp-to-urp",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\migrate-birp-to-urp\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "mobile-apps",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\mobile-apps\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "modu-jiphap",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\modu-jiphap\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "netlify-deploy",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\netlify-deploy\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "new-unity-project",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\new-unity-project\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "notion-knowledge-capture",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\notion-knowledge-capture\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "notion-meeting-intelligence",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\notion-meeting-intelligence\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "notion-research-documentation",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\notion-research-documentation\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "notion-spec-to-implementation",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\notion-spec-to-implementation\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "observability",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\observability\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "official-docs-first",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\official-docs-first\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "openai-docs",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\openai-docs\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "optimize-audio",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\optimize-audio\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "optimize-text-mesh-pro",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\optimize-text-mesh-pro\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "optimize-web",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\optimize-web\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "parallel-work",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\parallel-work\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "pdf",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\pdf\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "pdf:pdf",
+      "path": "C:\\Users\\tjqmf\\.codex\\plugins\\cache\\openai-primary-runtime\\pdf\\26.905.11957\\skills\\pdf\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "performance",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\performance\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "planning",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\planning\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "playwright",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\playwright\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "playwright-interactive",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\playwright-interactive\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "presentations:Presentations",
+      "path": "C:\\Users\\tjqmf\\.codex\\plugins\\cache\\openai-primary-runtime\\presentations\\26.905.11957\\skills\\presentations\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "refactoring",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\refactoring\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "render-deploy",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\render-deploy\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "responsive-design",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\responsive-design\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "screenshot",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\screenshot\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "security-best-practices",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\security-best-practices\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "security-ownership-map",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\security-ownership-map\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "security-review",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\security-review\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "security-threat-model",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\security-threat-model\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "sentry",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\sentry\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "setup-multiplayer-services",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\setup-multiplayer-services\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "setup-vivox-voice-chat",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\setup-vivox-voice-chat\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "shader-graph-create-custom-node",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\shader-graph-create-custom-node\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "skill-evaluation",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\skill-evaluation\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "speech",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\speech\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "spreadsheets:Spreadsheets",
+      "path": "C:\\Users\\tjqmf\\.codex\\plugins\\cache\\openai-primary-runtime\\spreadsheets\\26.905.11957\\skills\\spreadsheets\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "spreadsheets:excel-live-control",
+      "path": "C:\\Users\\tjqmf\\.codex\\plugins\\cache\\openai-primary-runtime\\spreadsheets\\26.905.11957\\skills\\excel-live-control\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "sprite-editor",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\sprite-editor\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "sprite-segment-3x3grid",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\sprite-segment-3x3grid\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "template-creator:template-creator",
+      "path": "C:\\Users\\tjqmf\\.codex\\plugins\\cache\\openai-primary-runtime\\template-creator\\26.905.11957\\skills\\template-creator\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "test-driven-development",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\test-driven-development\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "testing",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\testing\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "tilemap-palette-create",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\tilemap-palette-create\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "tilemap-ruletile-createempty",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\tilemap-ruletile-createempty\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "transcribe",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\transcribe\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "ui-ugui",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\ui-ugui\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "ui-uitk",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\ui-uitk\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "ui-ux-pro-max",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\ui-ux-pro-max\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "unity-cli",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\unity-cli\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "unity-package-management",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\unity-package-management\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "urp-postprocessing",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\urp-postprocessing\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "using-git-worktrees",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\using-git-worktrees\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "ux-ui-expert",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\ux-ui-expert\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "validate-urp-render-graph-renderer-feature",
+      "path": "C:\\Users\\tjqmf\\.agents\\skills\\validate-urp-render-graph-renderer-feature\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "vercel-deploy",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\vercel-deploy\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "verification-before-completion",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\verification-before-completion\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "visual-qa",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\visual-qa\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "visualize:visualize",
+      "path": "C:\\Users\\tjqmf\\.codex\\plugins\\cache\\openai-bundled\\visualize\\1.0.38\\skills\\visualize\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "winui-app",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\winui-app\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "writing-plans",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\writing-plans\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "imagegen",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\.system\\imagegen\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "openai-docs",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\.system\\openai-docs\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "plugin-creator",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\.system\\plugin-creator\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "review-agent",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\.system\\review-agent\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "skill-creator",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\.system\\skill-creator\\SKILL.md",
+      "enabled": true
+    },
+    {
+      "name": "skill-installer",
+      "path": "C:\\Users\\tjqmf\\.codex\\skills\\.system\\skill-installer\\SKILL.md",
+      "enabled": true
+    }
+  ]
+}

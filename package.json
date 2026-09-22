@@ -1,0 +1,37 @@
+{
+  "name": "ai-company-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.15.0 <25"
+  },
+  "scripts": {
+    "dev:server": "npm run build:server && node dist/server/server/main.js",
+    "dev:web": "vite --host 127.0.0.1",
+    "start": "node dist/server/server/main.js",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build:tests": "tsc -p tsconfig.test.json",
+    "build:web": "vite build",
+    "build": "npm run build:server && npm run build:web",
+    "typecheck": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.web.json",
+    "lint": "eslint src tests vite.config.ts",
+    "test": "npm run build:tests && node --test dist/test/tests/core.test.js dist/test/tests/git.test.js dist/test/tests/server.test.js"
+  },
+  "dependencies": {
+    "fastify": "5.12.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.13.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "eslint": "10.11.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.1",
+    "vite": "8.3.0"
+  }
+}

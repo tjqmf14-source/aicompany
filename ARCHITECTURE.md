@@ -49,3 +49,30 @@ Phase 2 adds `src/handoff` and SQLite migration 3 without replacing the Phase 1 
 ## Phase 3 extension
 
 Phase 3 adds `src/codex` and SQLite migration 4. The Codex provider uses the locally installed App Server with ChatGPT auth only, reads the Codex rate-limit state before dispatch, and stores execution/thread/turn references in SQLite. Rate-limit or interruption paths capture a Git checkpoint and automatically create a Phase 2 Handoff bundle instead of failing the project. A saved thread is resumed only when the current Git snapshot exactly matches the interruption checkpoint; otherwise a clean changed repository starts a new thread and a changed dirty repository is blocked for review. See [PHASE3_PROTOCOL.md](./PHASE3_PROTOCOL.md).
+
+
+## Phase 4 extension — Minimal Web Dashboard
+
+Phase 4는 Phase 1~3의 Core, Handoff, Codex Provider를 재작성하지 않고 그 위에 `src/dashboard` 집계 계층과 Dashboard 전용 Fastify API를 추가한다. Dashboard는 SQLite와 Git의 실제 상태를 읽으며, 존재하지 않는 role/priority/dependency/phase 같은 값은 추측하지 않고 “기록 없음”으로 노출한다.
+
+구조는 다음과 같다.
+
+```
+React/Vite Dashboard
+        ↓ HTTP + SSE
+Fastify Dashboard API (src/server/dashboard.ts)
+        ↓
+DashboardService (src/dashboard/service.ts)
+   ↙          ↓           ↘
+Core/SQLite   Handoff     Codex Execution Store
+   ↓
+GitManager
+```
+
+실시간 전송은 **SSE(Server-Sent Events)** 를 사용한다. Phase 4의 실시간 요구는 서버에서 브라우저로 Task/Run/Codex/Validation/Approval/Checkpoint/Git 상태를 전달하는 단방향 흐름이 핵심이므로, 양방향 프로토콜인 WebSocket보다 구현 면적과 연결 상태 관리가 작다. 브라우저의 `EventSource` 자동 재연결도 사용할 수 있다. 서버는 1초마다 실제 상태 fingerprint를 확인하지만 payload는 상태가 달라진 경우에만 `snapshot` 이벤트로 전송하고, 15초 heartbeat를 보낸다. 별도의 저빈도 전체 재조회는 연결 복구 보조 수단이며 실시간의 주 경로가 아니다.
+
+Dashboard 전용 API는 `/api/dashboard/*` 아래에 분리되어 있다. 읽기 API는 Projects, Project aggregate state, Capabilities, Settings를 제공하고, 제어 API는 기존 안전 primitive가 존재하는 Pause/Resume/Cancel/Approval/Checkpoint/Handoff/Codex dispatch·resume/Patch apply·rollback만 호출한다. 실제 primitive가 없거나 안전 조건이 충족되지 않으면 UI control은 `UNAVAILABLE` 또는 `BLOCKED`로 표시된다.
+
+10개 MVP 화면은 COMMAND CENTER, PROJECTS, TASKS, ACTIVITY, CHANGES, VALIDATION, CODEX, CHECKPOINTS, CAPABILITIES, SETTINGS이다. UI 언어는 한국어를 기본으로 하고 내부 상태 식별자는 원문 영어를 유지한다. 키보드 focus, semantic table/nav/header, alert/loading/empty state, 버튼 비활성 사유와 명시적 status text를 포함한다.
+
+Phase 4는 SQLite schema migration을 추가하지 않는다. Validation 화면은 Phase 2 Handoff verification에 실제 저장된 typecheck/lint/test/build 결과를 표시하며, Core에 저장되지 않는 npm audit, git diff --check, 분리된 integration-test 결과는 임의로 성공 처리하지 않고 `NOT RUN`으로 표시한다. CI의 Phase 4 gate는 별도로 `git diff --check`, typecheck, lint, 전체 37개 테스트, build, npm audit를 실행한다.

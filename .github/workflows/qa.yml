@@ -3,6 +3,7 @@ name: QA
 on:
   push:
     branches:
+      - main
       - 'qa/**'
   pull_request:
     branches:

@@ -228,10 +228,12 @@ export class DashboardService {
     const approvals = this.engine.repository.listApprovals(projectId);
     const validation = validationRows(handoffs);
     const latestExecution = newest(codexRows, item => item.updatedAt);
-    const codex = codexStatus(latestExecution, !!resolveCodexJsPath() && existsSync(resolveCodexJsPath()));
+    const codexPath = resolveCodexJsPath();
+    const codex = codexStatus(latestExecution, !!codexPath && existsSync(codexPath));
     const activity = this.engine.repository.listEvents(projectId).map(event => ({ ...event, category: category(event) })).reverse();
     const latestHandoff = newest(handoffs, item => item.updatedAt);
-    const objective = latestExecution?.objective ?? latestHandoff?.objective ?? currentTask?.description.trim() || currentTask?.title || null;
+    const taskObjective = currentTask?.description.trim() || currentTask?.title || null;
+    const objective = latestExecution?.objective ?? latestHandoff?.objective ?? taskObjective;
     const activeRun = currentTask?.runs.find(run => run.status === 'running') ?? null;
     const provider = currentTask?.provider ?? 'SYSTEM';
     const blockedReason = project.status === 'blocked' ? 'Project status is blocked'

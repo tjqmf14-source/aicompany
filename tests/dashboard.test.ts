@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
+import { createServer as createViteServer } from 'vite';
 import { CoreEngine } from '../src/core/engine.js';
 import { DashboardService } from '../src/dashboard/service.js';
 import {
@@ -48,12 +49,24 @@ async function createTask(app: ReturnType<typeof createApp>, projectId: string, 
 }
 
 test('1. Dashboard load', async () => {
-  const ctx = setup();
+  const vite = await createViteServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'silent' });
+  await vite.listen();
   try {
-    const response = await ctx.app.inject({ method: 'GET', url: '/api/dashboard/projects' });
-    assert.equal(response.statusCode, 200);
-    assert.deepEqual(response.json(), []);
-  } finally { await ctx.clean(); }
+    const address = vite.httpServer?.address();
+    assert.ok(address && typeof address === 'object');
+    const base = `http://127.0.0.1:${address.port}`;
+    const page = await fetch(base);
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /id="root"/);
+
+    const module = await fetch(`${base}/src/web/main.tsx`);
+    assert.equal(module.status, 200);
+    const source = await module.text();
+    assert.match(source, /COMMAND CENTER/);
+    assert.match(source, /SETTINGS/);
+  } finally {
+    await vite.close();
+  }
 });
 
 test('2. Project list', async () => {

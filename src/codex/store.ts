@@ -136,10 +136,12 @@ export class CodexExecutionStore {
       if (row.status === 'interrupted') return;
       if (row.status !== 'running') throw new CoreError('INVALID_TRANSITION', 'Run is not running');
       const timestamp = now();
+      const projectId = String(row.project_id);
+      const taskId = String(row.task_id);
       this.db.prepare("UPDATE runs SET status = 'interrupted', recovered_at = ?, finished_at = ?, error = ? WHERE id = ?").run(timestamp, timestamp, reason, runId);
-      this.db.prepare("UPDATE tasks SET status = 'waiting_provider', version = version + 1, updated_at = ? WHERE id = ? AND status = 'running'").run(timestamp, row.task_id);
+      this.db.prepare("UPDATE tasks SET status = 'waiting_provider', version = version + 1, updated_at = ? WHERE id = ? AND status = 'running'").run(timestamp, taskId);
       this.db.prepare('INSERT INTO events VALUES (?, ?, ?, ?, ?, ?, ?)').run(
-        randomUUID(), row.project_id, row.task_id, runId, 'run.interrupted', JSON.stringify({ reason: 'codex_provider', detail: reason }), timestamp,
+        randomUUID(), projectId, taskId, runId, 'run.interrupted', JSON.stringify({ reason: 'codex_provider', detail: reason }), timestamp,
       );
     });
   }

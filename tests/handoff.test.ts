@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -202,7 +202,7 @@ test('canonical path validation rejects a Windows junction before writing throug
     symlinkSync(target, link, 'junction');
     assert.throws(() => validateRelativePath(work.path, 'junction-directory/new.txt', false), (error: unknown) => error instanceof CoreError && error.code === 'INVALID_INPUT');
   } finally {
-    if (existsSync(link)) rmdirSync(link);
+    if (existsSync(link)) unlinkSync(link);
     engine.close(); work.clean();
   }
 });

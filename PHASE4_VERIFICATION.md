@@ -116,7 +116,7 @@ GitHub Actions Run #29 (`35733433727`) 결과:
 - `npm run build`: PASS
 - `npm audit --audit-level=high`: PASS — 0 vulnerabilities
 
-최종 QA 후보에서는 위 체인에 `git diff --check origin/main...HEAD`를 추가한다. 최종 후보 커밋은 별도의 GitHub Actions PASS 후에만 Phase 4 VERIFIED로 판정한다.
+최종 QA 후보에서는 위 체인에 Git whitespace 검사를 추가한다. PR에서는 base SHA와 HEAD 전체 차이에 `git diff --check`를 실행하고, push에서는 직전 commit과 HEAD 차이를 검사한다. 최종 후보 커밋은 별도의 GitHub Actions PASS 후에만 Phase 4 VERIFIED로 판정한다.
 
 ## Accessibility
 

@@ -1,0 +1,105 @@
+name: GitHub Project Sync Windows QA
+
+on:
+  push:
+    branches:
+      - qa/github-project-sync-win
+    paths:
+      - ".qa/github-project-sync/**"
+      - ".github/workflows/github-project-sync-windows-qa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-qa:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Reconstruct QA source
+        shell: pwsh
+        run: |
+          $parts = Get-ChildItem ".qa/github-project-sync/noico_*.b64" | Sort-Object Name
+          if ($parts.Count -ne 2) { throw "Expected 2 source chunks, found $($parts.Count)" }
+          $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ""
+          [IO.File]::WriteAllBytes("gps_winqa_noico.zip", [Convert]::FromBase64String($b64))
+          Expand-Archive -Path "gps_winqa_noico.zip" -DestinationPath "qa-extracted" -Force
+          $src = Resolve-Path "qa-extracted/gps_winqa_src_noico"
+          "GPS_SRC=$src" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Verify Python and Tkinter
+        shell: pwsh
+        run: |
+          python --version
+          python -c "import tkinter; import pathlib; print('TKINTER_OK')"
+
+      - name: Source end-to-end self test
+        shell: pwsh
+        run: |
+          Set-Location $env:GPS_SRC
+          python GitHub_Project_Sync.py --self-test
+          if ($LASTEXITCODE -ne 0) { throw "Source self-test failed" }
+          Write-Host "SOURCE_SELF_TEST_PASS"
+
+      - name: Source GUI startup smoke
+        shell: pwsh
+        run: |
+          Set-Location $env:GPS_SRC
+          python -c "import GitHub_Project_Sync as g; app=g.App(); app.update_idletasks(); assert 'GitHub Project Sync' in app.title(); app.destroy(); print('SOURCE_GUI_PASS')"
+          if ($LASTEXITCODE -ne 0) { throw "Source GUI smoke failed" }
+
+      - name: Install PyInstaller
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check --no-input pyinstaller==6.16.0
+
+      - name: Build standalone Windows EXE
+        shell: pwsh
+        run: |
+          Set-Location $env:GPS_SRC
+          pyinstaller --noconfirm --clean --onefile --windowed --name GitHub_Project_Sync --hidden-import self_test GitHub_Project_Sync.py
+          if (!(Test-Path "dist/GitHub_Project_Sync.exe")) { throw "EXE was not created" }
+
+      - name: Packaged EXE end-to-end self test
+        shell: pwsh
+        run: |
+          Set-Location $env:GPS_SRC
+          & ".\dist\GitHub_Project_Sync.exe" --self-test
+          if ($LASTEXITCODE -ne 0) { throw "Packaged EXE self-test failed" }
+          Write-Host "EXE_SELF_TEST_PASS"
+
+      - name: Packaged EXE GUI startup smoke
+        shell: pwsh
+        run: |
+          Set-Location $env:GPS_SRC
+          $p = Start-Process ".\dist\GitHub_Project_Sync.exe" -PassThru
+          Start-Sleep -Seconds 5
+          if ($p.HasExited) {
+            throw "GUI EXE exited unexpectedly with code $($p.ExitCode)"
+          }
+          Stop-Process -Id $p.Id -Force
+          Write-Host "EXE_GUI_STARTUP_PASS"
+
+      - name: Record hashes
+        shell: pwsh
+        run: |
+          Set-Location $env:GPS_SRC
+          Get-FileHash ".\dist\GitHub_Project_Sync.exe" -Algorithm SHA256 | Format-List
+          Get-Item ".\dist\GitHub_Project_Sync.exe" | Select-Object Name,Length,LastWriteTime | Format-List
+
+      - name: Upload verified executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: GitHub_Project_Sync_Windows_QA
+          path: ${{ env.GPS_SRC }}/dist/GitHub_Project_Sync.exe
+          if-no-files-found: error
+          retention-days: 7

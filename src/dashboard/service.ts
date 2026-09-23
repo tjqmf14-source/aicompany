@@ -288,6 +288,7 @@ export class DashboardService {
       artifacts: [...this.engine.repository.listArtifacts(projectId)].reverse(),
       decisions: [...this.engine.repository.listDecisions(projectId)].reverse(),
       capabilities: this.capabilities(projectId),
+      capabilityOperations: [...this.capabilityManager.store.listOperations(projectId)].reverse(),
       settings: this.settings(projectId),
     };
   }

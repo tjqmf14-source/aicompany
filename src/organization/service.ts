@@ -173,18 +173,29 @@ export class OrganizationService {
       if (!tasks.length || tasks.some(task => task.status !== 'passed')) throw new CoreError('CONFLICT', 'All plan tasks must pass before validation');
       return this.store.setPlan(planId, 'active', 'validation');
     }
+    if (plan.stage === 'qa') {
+      if (this.store.latestGate(planId, 'qa')?.result !== 'PASS') throw new CoreError('CONFLICT', 'qa must PASS before advancing');
+      const updated = this.store.setPlan(planId, 'active', 'pd_acceptance');
+      this.engine.repository.requestApproval(plan.projectId, `organization.pd_acceptance:${plan.id}`);
+      return updated;
+    }
+    if (plan.stage === 'pd_acceptance') {
+      if (this.store.latestGate(planId, 'pd_acceptance')?.result !== 'PASS') throw new CoreError('CONFLICT', 'pd_acceptance must PASS before advancing');
+      const approval = [...this.engine.repository.listApprovals(plan.projectId)].reverse()
+        .find(item => item.action === `organization.pd_acceptance:${plan.id}`);
+      if (!approval || approval.status !== 'approved') throw new CoreError('CONFLICT', 'PD acceptance approval must be approved before completion');
+      return this.store.setPlan(planId, 'completed', 'completed');
+    }
     const next: Partial<Record<typeof plan.stage, { gate: GateKind; stage: typeof plan.stage }>> = {
       validation: { gate: 'validation', stage: 'independent_review' },
       independent_review: { gate: 'independent_review', stage: 'qa' },
-      qa: { gate: 'qa', stage: 'pd_acceptance' },
-      pd_acceptance: { gate: 'pd_acceptance', stage: 'completed' },
     };
     const transition = next[plan.stage];
     if (!transition) throw new CoreError('INVALID_TRANSITION', `Plan cannot advance from ${plan.stage}`);
     if (this.store.latestGate(planId, transition.gate)?.result !== 'PASS') {
       throw new CoreError('CONFLICT', `${transition.gate} must PASS before advancing`);
     }
-    return this.store.setPlan(planId, transition.stage === 'completed' ? 'completed' : 'active', transition.stage);
+    return this.store.setPlan(planId, 'active', transition.stage);
   }
 
   rework(planId: string): OrganizationPlan {

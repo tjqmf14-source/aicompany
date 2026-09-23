@@ -3,6 +3,7 @@ import { CoreEngine } from '../core/engine.js';
 import { CoreError } from '../core/domain.js';
 import { schemaVersion } from '../core/migrations.js';
 import { registerDashboardRoutes } from './dashboard.js';
+import { registerOrganizationRoutes } from './organization.js';
 
 type Params = { id: string };
 type TaskParams = { id: string; taskId: string };
@@ -87,6 +88,7 @@ export function createApp(engine: CoreEngine): FastifyInstance {
   app.get<{ Params: Params }>('/api/projects/:id/decisions', async request => engine.repository.listDecisions(request.params.id));
   app.get<{ Params: Params }>('/api/projects/:id/approvals', async request => engine.repository.listApprovals(request.params.id));
   app.get('/api/capabilities', async () => engine.repository.listCapabilities());
+  registerOrganizationRoutes(app, engine);
   registerDashboardRoutes(app, engine);
   return app;
 }

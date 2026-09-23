@@ -322,6 +322,7 @@ export class DashboardService {
   capabilities(projectId?: string): DashboardCapability[] {
     if (!projectId) return [];
     return this.capabilityManager.dashboard(projectId).map(item => ({
+      id: item.id,
       name: item.name,
       type: item.type,
       status: item.overallStatus,

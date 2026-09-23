@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-09-24 — Phase 5 AI Company Organization / Executive PD
+
+### Added
+
+- SQLite schema migration v5 for Organization state
+- Executive PD orchestration service
+- 12 logical organization roles
+- Task role / priority / provider assignments
+- real Task dependency graph and readiness gating
+- Provider routing restricted to GPT_HIGH / CODEX / SYSTEM
+- Manual Handoff dispatch for GPT_HIGH
+- CodexExecutionService delegation for CODEX
+- Validation → Independent Review → QA → PD Acceptance gate pipeline
+- gate failure → blocked → rework flow
+- Core Approval requirement before final PD completion
+- durable Organization Event records
+- Organization Fastify API
+- Dashboard Role / Priority / Dependency / PD Stage integration
+- COMMAND CENTER Current Role / Active Roles / Review / QA / PD Acceptance state
+- 29 Phase 5 acceptance tests
+
+### QA
+
+- Phase 5 tests: 29/29 PASS
+- Phase 1-4 regression: 37/37 PASS
+- total: 66/66 PASS
+- typecheck / lint / build / npm audit / git diff --check PASS on functional Run #42
+
+### Not included
+
+- autonomous GPT High API invocation
+- Phase 6 Capability/Skill/MCP automation
+- Phase 7 parallel agents / Git worktrees
+- Phase 8 expanded security / recovery
+- Phase 9 Windows packaging
+
+# Changelog
+
 ## 2026-09-22 — Phase 4 Minimal Web Dashboard
 
 ### Added

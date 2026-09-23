@@ -173,6 +173,31 @@ The documentation commit must pass the same GitHub Actions gate before Phase 5 i
 - Phase 8 expanded security/recovery is not implemented.
 - Phase 5 does not merge to main without explicit user approval.
 
-## Main status
+## Main integration
 
-Not merged. PR #3 remains a Phase 5 verification PR.
+Phase 5 was merged from verified branch HEAD `dd682fbf8b9dd29a8ebdf821425de15275489c05` into main.
+
+- Previous main: `b30c514e437183e9fd8c6b42f8dce68da7aabf49`
+- Phase 5 merge commit: `bf87c1462a8f4e84a7c3bb0b6beb1ee415ffbe02`
+- Merge method: normal merge commit
+- Force push: not used
+- Initial main Run #44: runner remained in the test step abnormally long; no code failure was reported at the time of retry
+- Exact merge SHA verification on `qa/phase5-main-verify`: Run #45 SUCCESS
+- Main no-content retry commit: `83722054716076a17200087f4daa7611a81f1e7a`
+- Main verification Run: #47
+- Main Run ID: `35930021799`
+- Main Job ID: `107414102724`
+
+Main Run #47 result:
+
+- `npm ci`: PASS
+- `git diff --check`: PASS
+- `npm run typecheck`: PASS
+- `npm run lint`: PASS
+- Phase 5 tests: PASS — **29/29**
+- Phase 1-4 regression: PASS — **37/37**
+- `npm test`: PASS — **66/66**
+- `npm run build`: PASS
+- `npm audit --audit-level=high`: PASS — **0 vulnerabilities**
+
+The no-content retry commit changed no repository files; its tree is identical to the Phase 5 merge commit tree. This documentation update must itself pass the full main GitHub Actions workflow before Phase 5 is closed.

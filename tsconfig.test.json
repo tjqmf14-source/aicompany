@@ -9,6 +9,7 @@
     "src/handoff/**/*.ts",
     "src/codex/**/*.ts",
     "src/dashboard/**/*.ts",
+    "src/organization/**/*.ts",
     "src/server/**/*.ts",
     "tests/*.ts"
   ]

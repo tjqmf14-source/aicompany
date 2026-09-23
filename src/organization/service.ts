@@ -3,8 +3,8 @@ import { CoreError, nonEmpty } from '../core/domain.js';
 import { CoreEngine } from '../core/engine.js';
 import { OrganizationStore, type StoredPlanTask } from './store.js';
 import {
-  type CreateOrganizationPlanInput, type GateKind, type GateResult, type OrganizationAssignment,
-  type OrganizationPlan, type OrganizationRole, type OrganizationState, type OrganizationTask, type PlanTaskInput,
+  type GateKind, type GateResult, type OrganizationAssignment, type OrganizationPlan,
+  type OrganizationRole, type OrganizationState, type OrganizationTask, type PlanTaskInput,
 } from './types.js';
 
 function priority(value: number | undefined): number {
@@ -32,15 +32,44 @@ export class OrganizationService {
   readonly store: OrganizationStore;
   constructor(readonly engine: CoreEngine) { this.store = new OrganizationStore(engine.database); }
 
-  createPlan(projectId: string, input: CreateOrganizationPlanInput): OrganizationPlan {
-    this.engine.repository.getProject(projectId);
-    const objective = nonEmpty(input.objective, 'objective', 20_000);
-    if (!Array.isArray(input.tasks) || input.tasks.length < 1 || input.tasks.length > 200) {
+  private parseInput(input: unknown): { objective: string; tasks: PlanTaskInput[] } {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw new CoreError('INVALID_INPUT', 'Plan input must be an object');
+    const body = input as Record<string, unknown>;
+    if (typeof body.objective !== 'string') throw new CoreError('INVALID_INPUT', 'objective must be a string');
+    if (!Array.isArray(body.tasks) || body.tasks.length < 1 || body.tasks.length > 200) {
       throw new CoreError('INVALID_INPUT', 'tasks must contain 1-200 items');
     }
+    const tasks = body.tasks.map((raw, index): PlanTaskInput => {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new CoreError('INVALID_INPUT', `tasks[${index}] must be an object`);
+      const item = raw as Record<string, unknown>;
+      if (typeof item.key !== 'string' || typeof item.title !== 'string' || typeof item.role !== 'string' || typeof item.provider !== 'string') {
+        throw new CoreError('INVALID_INPUT', `tasks[${index}] requires key, title, role and provider strings`);
+      }
+      if (item.description !== undefined && typeof item.description !== 'string') throw new CoreError('INVALID_INPUT', `tasks[${index}].description must be a string`);
+      if (item.priority !== undefined && typeof item.priority !== 'number') throw new CoreError('INVALID_INPUT', `tasks[${index}].priority must be a number`);
+      if (item.dependsOn !== undefined && (!Array.isArray(item.dependsOn) || item.dependsOn.some(dep => typeof dep !== 'string'))) {
+        throw new CoreError('INVALID_INPUT', `tasks[${index}].dependsOn must contain strings`);
+      }
+      return {
+        key: item.key,
+        title: item.title,
+        description: item.description as string | undefined,
+        role: this.store.validateRole(item.role),
+        provider: this.store.validateProvider(item.provider),
+        priority: item.priority as number | undefined,
+        dependsOn: item.dependsOn as string[] | undefined,
+      };
+    });
+    return { objective: body.objective, tasks };
+  }
+
+  createPlan(projectId: string, input: unknown): OrganizationPlan {
+    this.engine.repository.getProject(projectId);
+    const parsed = this.parseInput(input);
+    const objective = nonEmpty(parsed.objective, 'objective', 20_000);
     const keys = new Set<string>();
     const ids = new Map<string, string>();
-    for (const item of input.tasks) {
+    for (const item of parsed.tasks) {
       const key = nonEmpty(item.key, 'task key', 100);
       if (keys.has(key)) throw new CoreError('INVALID_INPUT', `Duplicate task key: ${key}`);
       keys.add(key);
@@ -50,12 +79,12 @@ export class OrganizationService {
       this.store.validateProvider(item.provider);
       priority(item.priority);
     }
-    for (const item of input.tasks) for (const dep of item.dependsOn ?? []) {
+    for (const item of parsed.tasks) for (const dep of item.dependsOn ?? []) {
       if (!keys.has(dep)) throw new CoreError('INVALID_INPUT', `Unknown dependency key: ${dep}`);
       if (dep === item.key) throw new CoreError('INVALID_INPUT', 'Task cannot depend on itself');
     }
-    detectCycle(input.tasks);
-    const stored: StoredPlanTask[] = input.tasks.map(item => ({
+    detectCycle(parsed.tasks);
+    const stored: StoredPlanTask[] = parsed.tasks.map(item => ({
       id: ids.get(item.key)!,
       title: nonEmpty(item.title, 'task title', 300),
       description: item.description ?? '',

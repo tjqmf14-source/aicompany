@@ -547,7 +547,7 @@ function App() {
                   type="button"
                   className="secondary"
                   disabled={busy || item.cost === 'UNKNOWN_COST' || item.cost === 'PAID' || item.cost === 'USAGE_BASED_PAID' || item.sourceTrust === 'UNKNOWN' || item.sourceTrust === 'BLOCKED'}
-                  onClick={() => requestMcpVerification(item.name.startsWith('not-checked:') ? '' : state.capabilityOperations.find(() => false)?.capabilityId ?? '')}
+                  onClick={() => requestMcpVerification(item.id)}
                 >MCP 검증 요청</button>}
               </td>
             </tr>)}</tbody>

@@ -456,7 +456,7 @@ export class CapabilityManagerService {
         try {
           const installed = inspectSkill(destination);
           if (exactFiles(inspection.files, installed.files)) rmSync(destination, { recursive: true, force: true });
-        } catch {}
+        } catch { /* Preserve user-modified destinations instead of deleting them. */ }
       }
       this.store.patch(capability.id, { verificationState: 'ERROR', runtimeState: 'ERROR' });
       this.store.addCheck(capability.id, 'skill_install_verification', 'ERROR', error instanceof Error ? error.message : String(error));

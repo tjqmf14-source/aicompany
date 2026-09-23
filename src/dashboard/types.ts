@@ -62,6 +62,7 @@ export interface DashboardCodex {
 }
 
 export interface DashboardCapability {
+  id: string;
   name: 'Codex' | 'Git' | 'Node' | 'npm' | 'Skills' | 'MCP' | 'Build Runner' | 'Test Runner' | string;
   type: string;
   status: DashboardCapabilityStatus;

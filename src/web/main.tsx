@@ -89,6 +89,7 @@ function App() {
   const [settings, setSettings] = useState<DashboardClientSettings>(() => readClientSettings(window.localStorage));
   const [codexLive, setCodexLive] = useState<string>('NOT_CHECKED');
   const [codexAuth, setCodexAuth] = useState<boolean | null>(null);
+  const [skillSourcePath, setSkillSourcePath] = useState('');
 
   const refreshProjects = useCallback(async () => {
     const rows = await request<DashboardProjectSummary[]>('/api/dashboard/projects');
@@ -214,6 +215,41 @@ function App() {
   };
 
   const effectiveCodexAuth = codexAuth ?? state?.codex.authenticated ?? null;
+
+  const discoverCapabilities = () => {
+    if (!state) return;
+    void run(`/api/capability-manager/projects/${state.project.id}/discover`);
+  };
+
+  const requestSkillInstall = () => {
+    if (!state || !skillSourcePath.trim()) {
+      setError('설치할 로컬 Skill 폴더 경로를 입력하세요.');
+      return;
+    }
+    void run(`/api/capability-manager/projects/${state.project.id}/skills/install-request`, { sourcePath: skillSourcePath.trim() });
+  };
+
+  const resolveCapabilityApproval = (approvalId: string, status: 'approved' | 'rejected') => {
+    if (!state) return;
+    void run(`/api/dashboard/projects/${state.project.id}/approvals/${approvalId}/resolve`, { status });
+  };
+
+  const executeCapabilityOperation = (operationId: string, kind: string) => {
+    if (!state) return;
+    const action = kind === 'INSTALL' ? 'install' : kind === 'VERIFY_MCP' ? 'verify-mcp' : '';
+    if (!action) return;
+    void run(`/api/capability-manager/projects/${state.project.id}/operations/${operationId}/${action}`);
+  };
+
+  const rollbackCapabilityInstall = (operationId: string) => {
+    if (!state) return;
+    void run(`/api/capability-manager/projects/${state.project.id}/operations/${operationId}/rollback`);
+  };
+
+  const requestMcpVerification = (capabilityId: string) => {
+    if (!state) return;
+    void run(`/api/capability-manager/projects/${state.project.id}/capabilities/${capabilityId}/mcp-verify-request`);
+  };
 
   const saveSettings = (next: DashboardClientSettings) => {
     setSettings(next);
@@ -465,14 +501,83 @@ function App() {
         </article>)}
       </section>}
 
-      {state && screen === 'capabilities' && <section className="panel">
-        <div className="panel-heading"><h2>Capability Registry Foundation</h2><span className="muted">Phase 6 자동 설치 기능 없음</span></div>
-        <div className="table-wrap"><table>
-          <thead><tr><th>Capability</th><th>Status</th><th>Source</th><th>Details</th></tr></thead>
-          <tbody>{state.capabilities.map(item => <tr key={item.name}>
-            <td><strong>{item.name}</strong></td><td><Badge value={item.status} /></td><td>{item.source}</td><td className="mono">{item.details}</td>
-          </tr>)}</tbody>
-        </table></div>
+      {state && screen === 'capabilities' && <section className="stack">
+        <div className="panel">
+          <div className="panel-heading">
+            <div><h2>Capability / Skill / MCP Manager</h2><span className="muted">실제 탐색·비용·신뢰·검증 상태만 표시</span></div>
+            <button type="button" onClick={discoverCapabilities} disabled={busy}>실제 Capability 탐색</button>
+          </div>
+          <div className="settings-form">
+            <label>로컬 Skill 소스 폴더
+              <input
+                value={skillSourcePath}
+                onChange={event => setSkillSourcePath(event.target.value)}
+                placeholder="예: C:\\work\\my-skill"
+              />
+            </label>
+            <button type="button" onClick={requestSkillInstall} disabled={busy || !skillSourcePath.trim()}>
+              Skill 설치 승인 요청
+            </button>
+          </div>
+          <p className="muted">외부 다운로드나 임의 shell 설치는 지원하지 않습니다. 로컬 Skill 복사도 Approval과 hash 재검증 후 실행됩니다.</p>
+        </div>
+
+        <div className="panel">
+          <div className="table-wrap"><table>
+            <thead><tr>
+              <th>Capability</th><th>Type</th><th>Status</th><th>Discovery</th><th>Install</th><th>Auth</th>
+              <th>Cost</th><th>Verify</th><th>Runtime</th><th>Approval</th><th>Trust</th><th>Source</th><th>Checked</th><th>Action</th>
+            </tr></thead>
+            <tbody>{state.capabilities.map(item => <tr key={item.name}>
+              <td><strong>{item.name}</strong></td>
+              <td>{item.type}</td>
+              <td><Badge value={item.status} /></td>
+              <td><Badge value={item.discovery} /></td>
+              <td>{item.installation}</td>
+              <td>{item.authentication}</td>
+              <td><Badge value={item.cost} /></td>
+              <td>{item.verification}</td>
+              <td>{item.runtime}</td>
+              <td>{item.approval}</td>
+              <td>{item.sourceTrust}</td>
+              <td className="mono">{item.source}</td>
+              <td>{date(item.lastChecked)}</td>
+              <td>
+                {item.type === 'MCP' && item.name.startsWith('MCP:') && <button
+                  type="button"
+                  className="secondary"
+                  disabled={busy || item.cost === 'UNKNOWN_COST' || item.cost === 'PAID' || item.cost === 'USAGE_BASED_PAID' || item.sourceTrust === 'UNKNOWN' || item.sourceTrust === 'BLOCKED'}
+                  onClick={() => requestMcpVerification(item.name.startsWith('not-checked:') ? '' : state.capabilityOperations.find(() => false)?.capabilityId ?? '')}
+                >MCP 검증 요청</button>}
+              </td>
+            </tr>)}</tbody>
+          </table></div>
+          <p className="muted">상세 JSON은 API의 capability detail에서 확인할 수 있으며, AVAILABLE은 Verification과 Runtime Gate가 모두 충족된 경우에만 표시됩니다.</p>
+        </div>
+
+        <div className="panel">
+          <div className="panel-heading"><h2>Capability Operations</h2><span className="muted">Approval → 실행 → 검증 → 복구</span></div>
+          {state.capabilityOperations.length === 0 ? <Empty>Capability operation이 없습니다.</Empty> : <div className="table-wrap"><table>
+            <thead><tr><th>Kind</th><th>Status</th><th>Approval</th><th>Checkpoint</th><th>Error</th><th>Actions</th></tr></thead>
+            <tbody>{state.capabilityOperations.map(operation => <tr key={operation.id}>
+              <td>{operation.kind}</td>
+              <td><Badge value={operation.status} /></td>
+              <td className="mono">{operation.approvalId ?? '없음'}</td>
+              <td className="mono">{operation.checkpointId ?? '없음'}</td>
+              <td>{operation.error ?? '없음'}</td>
+              <td>
+                {operation.status === 'APPROVAL_PENDING' && operation.approvalId && <>
+                  <button type="button" className="secondary" disabled={busy} onClick={() => resolveCapabilityApproval(operation.approvalId!, 'approved')}>승인</button>
+                  <button type="button" className="secondary" disabled={busy} onClick={() => resolveCapabilityApproval(operation.approvalId!, 'rejected')}>거절</button>
+                </>}
+                {(operation.status === 'APPROVAL_PENDING' || operation.status === 'APPROVED') && (operation.kind === 'INSTALL' || operation.kind === 'VERIFY_MCP') &&
+                  <button type="button" disabled={busy} onClick={() => executeCapabilityOperation(operation.id, operation.kind)}>실행</button>}
+                {operation.kind === 'INSTALL' && operation.status === 'COMPLETED' &&
+                  <button type="button" className="secondary" disabled={busy} onClick={() => rollbackCapabilityInstall(operation.id)}>Rollback</button>}
+              </td>
+            </tr>)}</tbody>
+          </table></div>}
+        </div>
       </section>}
 
       {state && screen === 'settings' && <section className="content-grid">

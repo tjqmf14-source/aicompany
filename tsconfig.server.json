@@ -11,6 +11,7 @@
     "src/codex/**/*.ts",
     "src/dashboard/**/*.ts",
     "src/organization/**/*.ts",
+    "src/capabilities/**/*.ts",
     "src/server/**/*.ts"
   ]
 }

@@ -74,6 +74,8 @@ export interface DashboardCapability {
   approval: string;
   version: string | null;
   source: string;
+  sourceTrust: string;
+  installMethod: string;
   lastChecked: string | null;
   details: string;
 }

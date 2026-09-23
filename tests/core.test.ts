@@ -16,9 +16,10 @@ test('SQLite migration 1 to 5 preserves records and is idempotent', () => {
     db.db.prepare('INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?)').run('p1', 'saved', work.path, 'draft', 1, 't', 't');
     assert.equal(migrate(db.db, 2), 2);
     assert.equal(migrate(db.db, 3), 3);
-    assert.equal(migrate(db.db), 4);
-    assert.equal(migrate(db.db), 4);
-    assert.equal(schemaVersion(db.db), 4);
+    assert.equal(migrate(db.db, 4), 4);
+    assert.equal(migrate(db.db), 5);
+    assert.equal(migrate(db.db), 5);
+    assert.equal(schemaVersion(db.db), 5);
     assert.equal((db.db.prepare('SELECT name FROM projects WHERE id = ?').get('p1') as { name: string }).name, 'saved');
     assert.equal((db.db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number }).foreign_keys, 1);
     db.close();

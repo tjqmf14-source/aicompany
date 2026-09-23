@@ -45,8 +45,8 @@ export function safeSkillName(value: string): string {
 
 export function redact(text: string, max = 4000): string {
   return text.slice(0, max)
-    .replace(/(?:sk|pk|rk|ghp|github_pat|xox[baprs])-?[A-Za-z0-9_\-]{12,}/gi, '[REDACTED]')
-    .replace(/[A-Za-z0-9_\-]{40,}/g, '[REDACTED]');
+    .replace(/(?:sk|pk|rk|ghp|github_pat|xox[baprs])-?[A-Za-z0-9_-]{12,}/gi, '[REDACTED]')
+    .replace(/[A-Za-z0-9_-]{40,}/g, '[REDACTED]');
 }
 
 export function hasSensitiveArgument(args: string[]): boolean {

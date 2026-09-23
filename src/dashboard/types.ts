@@ -3,6 +3,7 @@ import type {
 } from '../core/domain.js';
 import type { HandoffSession } from '../handoff/store.js';
 import type { CodexExecution } from '../codex/store.js';
+import type { OrganizationState } from '../organization/types.js';
 
 export type DashboardActionState = 'AVAILABLE' | 'UNAVAILABLE' | 'NOT_IMPLEMENTED' | 'AUTH_REQUIRED' | 'BLOCKED';
 export type DashboardCapabilityStatus =
@@ -88,6 +89,11 @@ export interface DashboardCommandCenter {
   approvalRequired: boolean;
   latestCheckpoint: Checkpoint | null;
   latestValidation: DashboardValidation[];
+  currentRole: string | null;
+  activeRoles: string[];
+  pendingReview: boolean;
+  qaStatus: 'PASS' | 'FAIL' | 'NOT RUN';
+  pdAcceptance: 'PASS' | 'FAIL' | 'NOT RUN';
 }
 
 export interface DashboardControls {
@@ -118,6 +124,7 @@ export interface DashboardRealtimeState {
   checkpoints: Checkpoint[];
   approvals: Approval[];
   handoffs: HandoffSession[];
+  organization: OrganizationState;
   controls: DashboardControls;
 }
 

@@ -4,6 +4,7 @@ import type {
 import type { HandoffSession } from '../handoff/store.js';
 import type { CodexExecution } from '../codex/store.js';
 import type { OrganizationState } from '../organization/types.js';
+import type { CapabilityOperation } from '../capabilities/types.js';
 
 export type DashboardActionState = 'AVAILABLE' | 'UNAVAILABLE' | 'NOT_IMPLEMENTED' | 'AUTH_REQUIRED' | 'BLOCKED';
 export type DashboardCapabilityStatus =
@@ -142,6 +143,7 @@ export interface DashboardProjectState extends DashboardRealtimeState {
   artifacts: Artifact[];
   decisions: Decision[];
   capabilities: DashboardCapability[];
+  capabilityOperations: CapabilityOperation[];
   settings: DashboardSettings;
 }
 

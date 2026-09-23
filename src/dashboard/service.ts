@@ -1,13 +1,11 @@
-import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
 import { CoreEngine } from '../core/engine.js';
 import type { Approval, Event, Project, Run, Task } from '../core/domain.js';
 import { HandoffStore, type CheckResult, type HandoffSession } from '../handoff/store.js';
 import { CodexExecutionStore, type CodexExecution } from '../codex/store.js';
 import { resolveCodexJsPath } from '../codex/provider.js';
 import { OrganizationService } from '../organization/service.js';
+import { CapabilityManagerService } from '../capabilities/service.js';
 import type { OrganizationAssignment, OrganizationState } from '../organization/types.js';
 import type {
   DashboardAction, DashboardActivity, DashboardCapability, DashboardCodex, DashboardCommandCenter,
@@ -73,25 +71,6 @@ function runTimes(runs: Run[]): { startedAt: string | null; completedAt: string 
   return { startedAt, completedAt: completed.at(-1) ?? null };
 }
 
-function commandExists(command: string, args: string[] = ['--version']): { ok: boolean; detail: string } {
-  const result = spawnSync(command, args, { encoding: 'utf8', timeout: 5000, windowsHide: true });
-  if (result.error || result.status !== 0) return { ok: false, detail: result.error?.message ?? String(result.stderr || 'not available') };
-  return { ok: true, detail: String(result.stdout || result.stderr).trim().slice(0, 300) };
-}
-
-function projectScripts(rootPath: string): Record<string, string> {
-  try {
-    const path = join(rootPath, 'package.json');
-    if (!existsSync(path) || statSync(path).size > 1_000_000) return {};
-    const parsed = JSON.parse(readFileSync(path, 'utf8')) as { scripts?: unknown };
-    if (!parsed.scripts || typeof parsed.scripts !== 'object' || Array.isArray(parsed.scripts)) return {};
-    return Object.fromEntries(Object.entries(parsed.scripts as Record<string, unknown>)
-      .filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
-  } catch {
-    return {};
-  }
-}
-
 function validationRows(handoffs: HandoffSession[]): DashboardValidation[] {
   const verified = newest(
     handoffs.filter(item => item.verification?.results.length),
@@ -153,11 +132,13 @@ export class DashboardService {
   readonly handoffs: HandoffStore;
   readonly codex: CodexExecutionStore;
   readonly organization: OrganizationService;
+  readonly capabilityManager: CapabilityManagerService;
 
   constructor(readonly engine: CoreEngine) {
     this.handoffs = new HandoffStore(engine.database);
     this.codex = new CodexExecutionStore(engine.database);
     this.organization = new OrganizationService(engine);
+    this.capabilityManager = new CapabilityManagerService(engine);
   }
 
   private taskViews(
@@ -338,31 +319,23 @@ export class DashboardService {
   }
 
   capabilities(projectId?: string): DashboardCapability[] {
-    const git = commandExists('git');
-    const npm = commandExists(process.platform === 'win32' ? 'npm.cmd' : 'npm');
-    const codexPath = resolveCodexJsPath();
-    const skillsPath = join(homedir(), '.codex', 'skills');
-    const scripts = projectId ? projectScripts(this.engine.repository.getProject(projectId).rootPath) : {};
-    const rows: DashboardCapability[] = [
-      { name: 'Codex', status: codexPath && existsSync(codexPath) ? 'AVAILABLE' : 'MISSING_DEPENDENCY', source: 'runtime', details: codexPath || 'Codex JS path not found' },
-      { name: 'Git', status: git.ok ? 'AVAILABLE' : 'MISSING_DEPENDENCY', source: 'runtime', details: git.detail },
-      { name: 'Node', status: 'AVAILABLE', source: 'runtime', details: process.version },
-      { name: 'npm', status: npm.ok ? 'AVAILABLE' : 'MISSING_DEPENDENCY', source: 'runtime', details: npm.detail },
-      { name: 'Skills', status: existsSync(skillsPath) ? 'AVAILABLE' : 'MISSING_DEPENDENCY', source: 'runtime', details: skillsPath },
-      { name: 'MCP', status: 'UNSUPPORTED', source: 'phase4-foundation', details: 'Phase 4는 MCP Registry를 자동 탐색하거나 설치하지 않습니다.' },
-      { name: 'Build Runner', status: scripts.build ? 'AVAILABLE' : 'MISSING_DEPENDENCY', source: 'package.json', details: scripts.build ?? 'build script missing' },
-      { name: 'Test Runner', status: scripts.test ? 'AVAILABLE' : 'MISSING_DEPENDENCY', source: 'package.json', details: scripts.test ?? 'test script missing' },
-    ];
-    for (const stored of this.engine.repository.listCapabilities()) {
-      if (rows.some(row => row.name.toLowerCase() === stored.name.toLowerCase())) continue;
-      rows.push({
-        name: stored.name,
-        status: stored.status === 'available' ? 'AVAILABLE' : stored.status === 'degraded' ? 'ERROR' : 'DISABLED',
-        source: stored.source,
-        details: JSON.stringify(stored.details),
-      });
-    }
-    return rows;
+    if (!projectId) return [];
+    return this.capabilityManager.dashboard(projectId).map(item => ({
+      name: item.name,
+      type: item.type,
+      status: item.overallStatus,
+      discovery: item.discoveryState,
+      installation: item.installationState,
+      authentication: item.authState,
+      cost: item.costState,
+      verification: item.verificationState,
+      runtime: item.runtimeState,
+      approval: item.approvalState,
+      version: item.version,
+      source: item.source?.location ?? item.sourceRef ?? '기록 없음',
+      lastChecked: item.lastCheckedAt,
+      details: JSON.stringify(item.details),
+    }));
   }
 
   fingerprint(projectId: string): string {

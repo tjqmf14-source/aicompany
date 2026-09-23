@@ -7,7 +7,7 @@ import type { OrganizationState } from '../organization/types.js';
 
 export type DashboardActionState = 'AVAILABLE' | 'UNAVAILABLE' | 'NOT_IMPLEMENTED' | 'AUTH_REQUIRED' | 'BLOCKED';
 export type DashboardCapabilityStatus =
-  | 'AVAILABLE' | 'DISABLED' | 'AUTH_REQUIRED' | 'MISSING_DEPENDENCY'
+  | 'AVAILABLE' | 'UNAVAILABLE' | 'UNVERIFIED' | 'DISABLED' | 'AUTH_REQUIRED' | 'MISSING_DEPENDENCY'
   | 'BLOCKED_BY_COST' | 'UNSUPPORTED' | 'ERROR';
 export type DashboardValidationStatus = 'PASS' | 'FAIL' | 'SKIPPED' | 'NOT RUN';
 export type DashboardProvider = 'GPT HIGH' | 'CODEX' | 'SYSTEM' | 'WAITING USER';
@@ -62,8 +62,18 @@ export interface DashboardCodex {
 
 export interface DashboardCapability {
   name: 'Codex' | 'Git' | 'Node' | 'npm' | 'Skills' | 'MCP' | 'Build Runner' | 'Test Runner' | string;
+  type: string;
   status: DashboardCapabilityStatus;
+  discovery: string;
+  installation: string;
+  authentication: string;
+  cost: string;
+  verification: string;
+  runtime: string;
+  approval: string;
+  version: string | null;
   source: string;
+  lastChecked: string | null;
   details: string;
 }
 

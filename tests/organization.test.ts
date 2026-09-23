@@ -164,13 +164,16 @@ test('10. passing dependency activates downstream task', () => {
   } finally { ctx.engine.close(); ctx.work.clean(); }
 });
 
-test('11. GPT_HIGH routing is persisted', () => {
+test('11. GPT_HIGH routing is returned for ready High task', () => {
   const ctx = setup();
   try {
-    const plan = singleTaskPlan(ctx.organization, ctx.project.id);
-    const assignment = ctx.organization.store.listAssignments(plan.id)[0]!;
-    ctx.organization.store.validateProvider('GPT_HIGH');
-    assert.equal(assignment.provider, 'SYSTEM');
+    const plan = ctx.organization.createPlan(ctx.project.id, {
+      objective: 'High task',
+      tasks: [{ key: 'work', title: 'Reasoning work', role: 'Planning', provider: 'GPT_HIGH' }],
+    });
+    ctx.organization.start(plan.id);
+    const task = ctx.organization.stateByPlan(plan.id).tasks[0]!.task;
+    assert.equal(ctx.organization.route(task.id).provider, 'GPT_HIGH');
   } finally { ctx.engine.close(); ctx.work.clean(); }
 });
 

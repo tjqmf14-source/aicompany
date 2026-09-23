@@ -334,6 +334,8 @@ export class DashboardService {
       approval: item.approvalState,
       version: item.version,
       source: item.source?.location ?? item.sourceRef ?? '기록 없음',
+      sourceTrust: item.source?.trustState ?? 'UNKNOWN',
+      installMethod: item.source?.installMethod ?? 'NONE',
       lastChecked: item.lastCheckedAt,
       details: JSON.stringify(item.details),
     }));

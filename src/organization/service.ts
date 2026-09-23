@@ -1,0 +1,209 @@
+import { randomUUID } from 'node:crypto';
+import { CoreError, nonEmpty } from '../core/domain.js';
+import { CoreEngine } from '../core/engine.js';
+import { OrganizationStore, type StoredPlanTask } from './store.js';
+import {
+  type GateKind, type GateResult, type OrganizationAssignment, type OrganizationPlan,
+  type OrganizationRole, type OrganizationState, type OrganizationTask, type PlanTaskInput,
+} from './types.js';
+
+function priority(value: number | undefined): number {
+  const result = value ?? 100;
+  if (!Number.isSafeInteger(result) || result < 1 || result > 10_000) throw new CoreError('INVALID_INPUT', 'priority must be an integer from 1 to 10000');
+  return result;
+}
+
+function detectCycle(tasks: PlanTaskInput[]): void {
+  const graph = new Map(tasks.map(task => [task.key, task.dependsOn ?? []] as const));
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (key: string): void => {
+    if (visiting.has(key)) throw new CoreError('INVALID_INPUT', 'Task dependency cycle detected');
+    if (visited.has(key)) return;
+    visiting.add(key);
+    for (const next of graph.get(key) ?? []) visit(next);
+    visiting.delete(key);
+    visited.add(key);
+  };
+  for (const key of graph.keys()) visit(key);
+}
+
+export class OrganizationService {
+  readonly store: OrganizationStore;
+  constructor(readonly engine: CoreEngine) { this.store = new OrganizationStore(engine.database); }
+
+  private parseInput(input: unknown): { objective: string; tasks: PlanTaskInput[] } {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw new CoreError('INVALID_INPUT', 'Plan input must be an object');
+    const body = input as Record<string, unknown>;
+    if (typeof body.objective !== 'string') throw new CoreError('INVALID_INPUT', 'objective must be a string');
+    if (!Array.isArray(body.tasks) || body.tasks.length < 1 || body.tasks.length > 200) {
+      throw new CoreError('INVALID_INPUT', 'tasks must contain 1-200 items');
+    }
+    const tasks = body.tasks.map((raw, index): PlanTaskInput => {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new CoreError('INVALID_INPUT', `tasks[${index}] must be an object`);
+      const item = raw as Record<string, unknown>;
+      if (typeof item.key !== 'string' || typeof item.title !== 'string' || typeof item.role !== 'string' || typeof item.provider !== 'string') {
+        throw new CoreError('INVALID_INPUT', `tasks[${index}] requires key, title, role and provider strings`);
+      }
+      if (item.description !== undefined && typeof item.description !== 'string') throw new CoreError('INVALID_INPUT', `tasks[${index}].description must be a string`);
+      if (item.priority !== undefined && typeof item.priority !== 'number') throw new CoreError('INVALID_INPUT', `tasks[${index}].priority must be a number`);
+      if (item.dependsOn !== undefined && (!Array.isArray(item.dependsOn) || item.dependsOn.some(dep => typeof dep !== 'string'))) {
+        throw new CoreError('INVALID_INPUT', `tasks[${index}].dependsOn must contain strings`);
+      }
+      return {
+        key: item.key,
+        title: item.title,
+        description: item.description as string | undefined,
+        role: this.store.validateRole(item.role),
+        provider: this.store.validateProvider(item.provider),
+        priority: item.priority as number | undefined,
+        dependsOn: item.dependsOn as string[] | undefined,
+      };
+    });
+    return { objective: body.objective, tasks };
+  }
+
+  createPlan(projectId: string, input: unknown): OrganizationPlan {
+    this.engine.repository.getProject(projectId);
+    const parsed = this.parseInput(input);
+    const objective = nonEmpty(parsed.objective, 'objective', 20_000);
+    const keys = new Set<string>();
+    const ids = new Map<string, string>();
+    for (const item of parsed.tasks) {
+      const key = nonEmpty(item.key, 'task key', 100);
+      if (keys.has(key)) throw new CoreError('INVALID_INPUT', `Duplicate task key: ${key}`);
+      keys.add(key);
+      ids.set(key, randomUUID());
+      nonEmpty(item.title, 'task title', 300);
+      this.store.validateRole(item.role);
+      this.store.validateProvider(item.provider);
+      priority(item.priority);
+    }
+    for (const item of parsed.tasks) for (const dep of item.dependsOn ?? []) {
+      if (!keys.has(dep)) throw new CoreError('INVALID_INPUT', `Unknown dependency key: ${dep}`);
+      if (dep === item.key) throw new CoreError('INVALID_INPUT', 'Task cannot depend on itself');
+    }
+    detectCycle(parsed.tasks);
+    const stored: StoredPlanTask[] = parsed.tasks.map(item => ({
+      id: ids.get(item.key)!,
+      title: nonEmpty(item.title, 'task title', 300),
+      description: item.description ?? '',
+      role: this.store.validateRole(item.role),
+      provider: this.store.validateProvider(item.provider),
+      priority: priority(item.priority),
+      dependencyIds: (item.dependsOn ?? []).map(key => ids.get(key)!),
+    }));
+    return this.store.create(projectId, objective, stored);
+  }
+
+  start(planId: string): OrganizationPlan {
+    const plan = this.store.get(planId);
+    if (plan.status !== 'draft' || plan.stage !== 'planning') throw new CoreError('INVALID_TRANSITION', 'Plan must be draft/planning');
+    const updated = this.store.setPlan(planId, 'active', 'execution');
+    this.store.refreshReady(planId);
+    return updated;
+  }
+
+  refresh(planId: string): OrganizationState {
+    this.store.refreshReady(planId);
+    return this.stateByPlan(planId);
+  }
+
+  private latestPlan(projectId: string): OrganizationPlan | null { return this.store.latest(projectId); }
+
+  state(projectId: string): OrganizationState {
+    const plan = this.latestPlan(projectId);
+    if (!plan) return {
+      plan: null, tasks: [], gates: [], activeRoles: [], currentRole: null,
+      pendingReview: false, qaStatus: 'NOT RUN', pdAcceptance: 'NOT RUN',
+    };
+    return this.stateByPlan(plan.id);
+  }
+
+  stateByPlan(planId: string): OrganizationState {
+    const plan = this.store.get(planId);
+    const assignments = this.store.listAssignments(planId);
+    const assignmentMap = new Map(assignments.map(item => [item.taskId, item]));
+    const tasks: OrganizationTask[] = this.store.planTasks(planId).map(task => ({
+      task,
+      assignment: assignmentMap.get(task.id)!,
+      dependencies: this.store.dependencies(task.id),
+      ready: this.store.dependenciesSatisfied(task.id),
+    }));
+    const activeStatuses = new Set(['ready', 'running', 'waiting_user', 'waiting_provider', 'reviewing']);
+    const activeRoles = [...new Set(tasks.filter(item => activeStatuses.has(item.task.status)).map(item => item.assignment.role))];
+    const current = tasks.find(item => item.task.status === 'running')
+      ?? tasks.find(item => item.task.status === 'waiting_user' || item.task.status === 'waiting_provider')
+      ?? tasks.find(item => item.task.status === 'ready')
+      ?? null;
+    const gates = this.store.gates(planId);
+    return {
+      plan, tasks, gates, activeRoles, currentRole: current?.assignment.role ?? null,
+      pendingReview: plan.stage === 'independent_review' && this.store.latestGate(planId, 'independent_review')?.result !== 'PASS',
+      qaStatus: this.store.latestGate(planId, 'qa')?.result ?? 'NOT RUN',
+      pdAcceptance: this.store.latestGate(planId, 'pd_acceptance')?.result ?? 'NOT RUN',
+    };
+  }
+
+  route(taskId: string): OrganizationAssignment {
+    const assignment = this.store.assignment(taskId);
+    if (!assignment) throw new CoreError('NOT_FOUND', 'Organization assignment not found');
+    const task = this.engine.repository.getTask(taskId);
+    if (!this.store.dependenciesSatisfied(taskId)) throw new CoreError('CONFLICT', 'Task dependencies are not complete');
+    if (task.status !== 'ready' && task.status !== 'waiting_provider') {
+      throw new CoreError('INVALID_TRANSITION', 'Task must be ready or waiting_provider before routing');
+    }
+    return assignment;
+  }
+
+  recordGate(planId: string, kind: GateKind, result: GateResult, summary: string, evidence = '') {
+    const plan = this.store.get(planId);
+    if (plan.stage !== kind) throw new CoreError('INVALID_TRANSITION', `Plan stage ${plan.stage} cannot record ${kind}`);
+    const gate = this.store.addGate(planId, kind, result, summary, evidence);
+    if (result === 'FAIL') this.store.setPlan(planId, 'blocked', 'blocked');
+    return gate;
+  }
+
+  advance(planId: string): OrganizationPlan {
+    const plan = this.store.get(planId);
+    if (plan.stage === 'planning') return this.start(planId);
+    if (plan.status === 'blocked' || plan.stage === 'blocked') throw new CoreError('INVALID_TRANSITION', 'Blocked plan requires rework');
+    if (plan.stage === 'execution') {
+      const tasks = this.store.planTasks(planId);
+      if (!tasks.length || tasks.some(task => task.status !== 'passed')) throw new CoreError('CONFLICT', 'All plan tasks must pass before validation');
+      return this.store.setPlan(planId, 'active', 'validation');
+    }
+    if (plan.stage === 'qa') {
+      if (this.store.latestGate(planId, 'qa')?.result !== 'PASS') throw new CoreError('CONFLICT', 'qa must PASS before advancing');
+      const updated = this.store.setPlan(planId, 'active', 'pd_acceptance');
+      this.engine.repository.requestApproval(plan.projectId, `organization.pd_acceptance:${plan.id}`);
+      return updated;
+    }
+    if (plan.stage === 'pd_acceptance') {
+      if (this.store.latestGate(planId, 'pd_acceptance')?.result !== 'PASS') throw new CoreError('CONFLICT', 'pd_acceptance must PASS before advancing');
+      const approval = [...this.engine.repository.listApprovals(plan.projectId)].reverse()
+        .find(item => item.action === `organization.pd_acceptance:${plan.id}`);
+      if (!approval || approval.status !== 'approved') throw new CoreError('CONFLICT', 'PD acceptance approval must be approved before completion');
+      return this.store.setPlan(planId, 'completed', 'completed');
+    }
+    if (plan.stage === 'validation') {
+      if (this.store.latestGate(planId, 'validation')?.result !== 'PASS') throw new CoreError('CONFLICT', 'validation must PASS before advancing');
+      return this.store.setPlan(planId, 'active', 'independent_review');
+    }
+    if (plan.stage === 'independent_review') {
+      if (this.store.latestGate(planId, 'independent_review')?.result !== 'PASS') throw new CoreError('CONFLICT', 'independent_review must PASS before advancing');
+      return this.store.setPlan(planId, 'active', 'qa');
+    }
+    throw new CoreError('INVALID_TRANSITION', `Plan cannot advance from ${plan.stage}`);
+  }
+
+  rework(planId: string): OrganizationPlan {
+    const plan = this.store.get(planId);
+    if (plan.status !== 'blocked' || plan.stage !== 'blocked') throw new CoreError('INVALID_TRANSITION', 'Only blocked plans can enter rework');
+    const updated = this.store.setPlan(planId, 'active', 'execution');
+    this.store.refreshReady(planId);
+    return updated;
+  }
+
+  roleForTask(taskId: string): OrganizationRole | null { return this.store.assignment(taskId)?.role ?? null; }
+}

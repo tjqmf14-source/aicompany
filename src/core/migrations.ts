@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 
-export const LATEST_SCHEMA_VERSION = 4;
+export const LATEST_SCHEMA_VERSION = 5;
 
 const migrations = [
   {
@@ -156,6 +156,51 @@ const migrations = [
       CREATE INDEX codex_executions_project_id_idx ON codex_executions(project_id, created_at);
       CREATE INDEX codex_executions_task_id_idx ON codex_executions(task_id, created_at);
       CREATE INDEX codex_executions_status_idx ON codex_executions(status);
+    `,
+  },
+  {
+    version: 5,
+    sql: `
+      CREATE TABLE organization_plans (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+        objective TEXT NOT NULL CHECK(length(trim(objective)) > 0),
+        status TEXT NOT NULL CHECK(status IN ('draft','active','blocked','completed')),
+        stage TEXT NOT NULL CHECK(stage IN ('planning','execution','validation','independent_review','qa','pd_acceptance','completed','blocked')),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX organization_plans_project_id_idx ON organization_plans(project_id, created_at);
+
+      CREATE TABLE organization_assignments (
+        task_id TEXT PRIMARY KEY REFERENCES tasks(id) ON DELETE RESTRICT,
+        plan_id TEXT NOT NULL REFERENCES organization_plans(id) ON DELETE RESTRICT,
+        role TEXT NOT NULL CHECK(role IN ('Executive PD','Planning','Research','Design Director','UI/UX','Visual Design','Engineering Director','Coding','Code Review','QA','Security','Release')),
+        priority INTEGER NOT NULL CHECK(priority BETWEEN 1 AND 10000),
+        provider TEXT NOT NULL CHECK(provider IN ('GPT_HIGH','CODEX','SYSTEM')),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX organization_assignments_plan_id_idx ON organization_assignments(plan_id, priority);
+
+      CREATE TABLE organization_dependencies (
+        task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE RESTRICT,
+        depends_on_task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE RESTRICT,
+        PRIMARY KEY(task_id, depends_on_task_id),
+        CHECK(task_id <> depends_on_task_id)
+      );
+
+      CREATE TABLE organization_gates (
+        id TEXT PRIMARY KEY,
+        plan_id TEXT NOT NULL REFERENCES organization_plans(id) ON DELETE RESTRICT,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+        kind TEXT NOT NULL CHECK(kind IN ('validation','independent_review','qa','pd_acceptance')),
+        result TEXT NOT NULL CHECK(result IN ('PASS','FAIL')),
+        summary TEXT NOT NULL CHECK(length(trim(summary)) > 0),
+        evidence TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX organization_gates_plan_id_idx ON organization_gates(plan_id, created_at);
     `,
   },
 ] as const;

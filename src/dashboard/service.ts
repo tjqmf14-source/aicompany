@@ -7,6 +7,8 @@ import type { Approval, Event, Project, Run, Task } from '../core/domain.js';
 import { HandoffStore, type CheckResult, type HandoffSession } from '../handoff/store.js';
 import { CodexExecutionStore, type CodexExecution } from '../codex/store.js';
 import { resolveCodexJsPath } from '../codex/provider.js';
+import { OrganizationService } from '../organization/service.js';
+import type { OrganizationAssignment, OrganizationState } from '../organization/types.js';
 import type {
   DashboardAction, DashboardActivity, DashboardCapability, DashboardCodex, DashboardCommandCenter,
   DashboardControls, DashboardProjectState, DashboardProjectSummary, DashboardProvider,
@@ -44,16 +46,23 @@ function category(event: Event): DashboardActivity['category'] {
   if (type.includes('test') || type.includes('validation')) return 'test';
   if (type.includes('git') || type.includes('checkpoint')) return 'git';
   if (type.includes('security')) return 'security';
-  if (type.includes('run') || type.includes('task') || type.includes('project')) return 'workflow';
+  if (type.includes('organization') || type.includes('run') || type.includes('task') || type.includes('project')) return 'workflow';
   return 'system';
 }
 
-function providerFor(task: Task, handoffs: HandoffSession[], codex: CodexExecution[]): DashboardProvider {
+function providerFor(
+  task: Task,
+  assignment: OrganizationAssignment | null,
+  handoffs: HandoffSession[],
+  codex: CodexExecution[],
+): DashboardProvider {
   if (task.status === 'waiting_user') return 'WAITING USER';
   const latestCodex = newest(codex.filter(item => item.taskId === task.id), item => item.updatedAt);
   const latestHandoff = newest(handoffs.filter(item => item.taskId === task.id), item => item.updatedAt);
   if (latestCodex && (!latestHandoff || latestCodex.updatedAt >= latestHandoff.updatedAt)) return 'CODEX';
   if (latestHandoff) return 'GPT HIGH';
+  if (assignment?.provider === 'GPT_HIGH') return 'GPT HIGH';
+  if (assignment?.provider === 'CODEX') return 'CODEX';
   return 'SYSTEM';
 }
 
@@ -143,22 +152,31 @@ function codexStatus(execution: CodexExecution | null, installed: boolean): Dash
 export class DashboardService {
   readonly handoffs: HandoffStore;
   readonly codex: CodexExecutionStore;
+  readonly organization: OrganizationService;
 
   constructor(readonly engine: CoreEngine) {
     this.handoffs = new HandoffStore(engine.database);
     this.codex = new CodexExecutionStore(engine.database);
+    this.organization = new OrganizationService(engine);
   }
 
-  private taskViews(projectId: string, handoffs: HandoffSession[], codex: CodexExecution[]): DashboardTask[] {
+  private taskViews(
+    projectId: string,
+    handoffs: HandoffSession[],
+    codex: CodexExecution[],
+    organization: OrganizationState,
+  ): DashboardTask[] {
+    const organizationMap = new Map(organization.tasks.map(item => [item.task.id, item]));
     return this.engine.repository.listTasks(projectId).map(task => {
       const runs = this.engine.repository.listRuns(task.id);
       const times = runTimes(runs);
+      const organizationTask = organizationMap.get(task.id) ?? null;
       return {
         ...task,
-        role: null,
-        provider: providerFor(task, handoffs, codex),
-        priority: null,
-        dependencies: [],
+        role: organizationTask?.assignment.role ?? null,
+        provider: providerFor(task, organizationTask?.assignment ?? null, handoffs, codex),
+        priority: organizationTask?.assignment.priority ?? null,
+        dependencies: organizationTask?.dependencies.map(item => item.dependsOnTaskId) ?? [],
         retryCount: Math.max(0, runs.length - 1),
         acceptanceCriteria: acceptanceCriteria(task.description),
         startedAt: times.startedAt,
@@ -222,7 +240,8 @@ export class DashboardService {
     const git = this.engine.git(projectId).snapshot();
     const handoffs = this.handoffs.list(projectId);
     const codexRows = this.codex.list(projectId);
-    const tasks = this.taskViews(projectId, handoffs, codexRows);
+    const organization = this.organization.state(projectId);
+    const tasks = this.taskViews(projectId, handoffs, codexRows, organization);
     const currentTask = this.currentTask(tasks);
     const checkpoints = this.engine.repository.listCheckpoints(projectId);
     const approvals = this.engine.repository.listApprovals(projectId);
@@ -233,11 +252,12 @@ export class DashboardService {
     const activity = this.engine.repository.listEvents(projectId).map(event => ({ ...event, category: category(event) })).reverse();
     const latestHandoff = newest(handoffs, item => item.updatedAt);
     const taskObjective = currentTask?.description.trim() || currentTask?.title || null;
-    const objective = latestExecution?.objective ?? latestHandoff?.objective ?? taskObjective;
+    const objective = organization.plan?.objective ?? latestExecution?.objective ?? latestHandoff?.objective ?? taskObjective;
     const activeRun = currentTask?.runs.find(run => run.status === 'running') ?? null;
     const provider = currentTask?.provider ?? 'SYSTEM';
-    const blockedReason = project.status === 'blocked' ? 'Project status is blocked'
-      : currentTask?.status === 'waiting_user' ? '사용자 입력 또는 승인을 기다리는 중'
+    const blockedReason = organization.plan?.status === 'blocked' ? 'Executive PD plan is blocked'
+      : project.status === 'blocked' ? 'Project status is blocked'
+        : currentTask?.status === 'waiting_user' ? '사용자 입력 또는 승인을 기다리는 중'
         : currentTask?.status === 'waiting_provider' ? latestExecution?.error ?? latestHandoff?.error ?? 'Provider를 기다리는 중'
           : latestExecution?.status === 'recovery_required' ? latestExecution.error ?? 'Codex recovery required'
             : null;
@@ -248,7 +268,7 @@ export class DashboardService {
     const commandCenter: DashboardCommandCenter = {
       project,
       objective,
-      phase: null,
+      phase: organization.plan?.stage ?? null,
       taskCounts,
       currentTask,
       provider,
@@ -258,6 +278,11 @@ export class DashboardService {
       approvalRequired: approvals.some(item => item.status === 'pending'),
       latestCheckpoint: checkpoints.at(-1) ?? null,
       latestValidation: validation,
+      currentRole: organization.currentRole,
+      activeRoles: organization.activeRoles,
+      pendingReview: organization.pendingReview,
+      qaStatus: organization.qaStatus,
+      pdAcceptance: organization.pdAcceptance,
     };
     return {
       project,
@@ -270,6 +295,7 @@ export class DashboardService {
       checkpoints: [...checkpoints].reverse(),
       approvals: [...approvals].reverse(),
       handoffs: [...handoffs].reverse(),
+      organization,
       controls: this.controls(project, currentTask, approvals, handoffs, codexRows, git.dirty),
     };
   }

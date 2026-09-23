@@ -76,3 +76,57 @@ Dashboard 전용 API는 `/api/dashboard/*` 아래에 분리되어 있다. 읽기
 10개 MVP 화면은 COMMAND CENTER, PROJECTS, TASKS, ACTIVITY, CHANGES, VALIDATION, CODEX, CHECKPOINTS, CAPABILITIES, SETTINGS이다. UI 언어는 한국어를 기본으로 하고 내부 상태 식별자는 원문 영어를 유지한다. 키보드 focus, semantic table/nav/header, alert/loading/empty state, 버튼 비활성 사유와 명시적 status text를 포함한다.
 
 Phase 4는 SQLite schema migration을 추가하지 않는다. Validation 화면은 Phase 2 Handoff verification에 실제 저장된 typecheck/lint/test/build 결과를 표시하며, Core에 저장되지 않는 npm audit, git diff --check, 분리된 integration-test 결과는 임의로 성공 처리하지 않고 `NOT RUN`으로 표시한다. CI의 Phase 4 gate는 별도로 `git diff --check`, typecheck, lint, 전체 37개 테스트, build, npm audit를 실행한다.
+
+
+## Phase 5 extension — AI Company Organization / Executive PD
+
+Phase 5 adds `src/organization` as an orchestration layer above the verified Core/Handoff/Codex/Dashboard stack. It does not replace the Phase 1-4 source-of-truth model.
+
+```
+React/Vite Dashboard
+        ↓
+Dashboard + Organization API
+        ↓
+OrganizationService / Executive PD
+        ↓
+Core Task / Approval / Event
+   ↙          ↓          ↘
+SYSTEM     Handoff      Codex
+           GPT HIGH    App Server
+```
+
+SQLite migration **v5** adds `organization_plans`, `organization_assignments`, `organization_dependencies`, and `organization_gates`. Existing Core Tasks remain the executable task records. Organization tables attach logical role, priority, provider routing, dependency, PD stage, and gate evidence without rewriting the Core Task schema.
+
+The approved logical roles are Executive PD, Planning, Research, Design Director, UI/UX, Visual Design, Engineering Director, Coding, Code Review, QA, Security, and Release. A role is shown as active only when one of its assigned tasks is actually ready, running, waiting for user/provider, or reviewing. Queued dependency-blocked roles are not shown as active.
+
+Provider routing is restricted to `GPT_HIGH`, `CODEX`, and `SYSTEM`. Unknown or paid-provider identifiers are rejected. `GPT_HIGH` dispatch reuses the existing Phase 2 Manual Handoff path. `CODEX` dispatch delegates to the existing Phase 3 CodexExecutionService. `SYSTEM` does not generically mark work complete; it reports that a specific deterministic system primitive is required.
+
+Executive PD enforces this pipeline:
+
+```
+planning
+  → execution
+  → validation
+  → independent_review
+  → qa
+  → pd_acceptance
+  → completed
+```
+
+All Organization Tasks must be `passed` before leaving execution. Each later gate requires an explicit PASS record. A FAIL moves the plan to `blocked`; `rework` returns it to execution. Entering PD Acceptance creates a normal Core Approval, and the plan cannot complete until both the PD Acceptance gate is PASS and that Approval is approved.
+
+Task dependencies are stored as real Core Task IDs. A queued downstream task becomes `ready` only when every dependency is `passed`. Organization routing independently re-checks dependency completion, so the orchestration endpoint cannot dispatch a dependency-blocked task.
+
+The Dashboard now reads Organization state and fills the previously unavailable Role, Priority, Dependency, and PD Stage values. COMMAND CENTER also exposes Current Role, Active Roles, pending Independent Review, QA status, and PD Acceptance status. Organization events use the existing durable Event log; no synthetic agent chat or percentage progress is generated.
+
+Organization API endpoints are under `/api/organization/*` and cover plan creation/state, start/refresh/advance/rework, gate recording, route inspection, and provider dispatch.
+
+### Phase 5 boundaries
+
+- GPT High is not called as an API. The default integration remains Manual Handoff.
+- The PD plan is structured input; Phase 5 does not claim autonomous GPT-driven task decomposition.
+- Live Codex App Server execution still depends on the user's local Codex installation and ChatGPT authentication. Phase 5 reuses, rather than replaces, the Phase 3 provider.
+- Generic SYSTEM tasks are not auto-completed because no arbitrary deterministic executor exists.
+- Capability/Skill/MCP auto-management remains Phase 6.
+- Parallel agents/Git worktrees remain Phase 7.
+- Security/recovery expansion remains Phase 8.

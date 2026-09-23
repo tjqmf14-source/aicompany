@@ -274,13 +274,18 @@ function App() {
           </div>
           <div className="metrics">
             <Metric label="현재 Objective" value={state.commandCenter.objective ?? '기록 없음'} />
-            <Metric label="현재 Phase" value={state.commandCenter.phase ?? '기록 없음'} />
+            <Metric label="PD Stage" value={state.commandCenter.phase ?? '기록 없음'} />
+            <Metric label="현재 Role" value={state.commandCenter.currentRole ?? '없음'} />
+            <Metric label="활성 Role" value={state.commandCenter.activeRoles.length ? state.commandCenter.activeRoles.join(' · ') : '없음'} />
             <Metric label="현재 Task" value={currentTask?.title ?? '없음'} />
             <Metric label="Provider" value={<Badge value={state.commandCenter.provider} />} />
             <Metric label="Run 상태" value={state.commandCenter.runStatus ?? '실행 없음'} />
             <Metric label="Codex 상태" value={<Badge value={state.commandCenter.codexStatus} />} />
             <Metric label="Blocked reason" value={state.commandCenter.blockedReason ?? '없음'} />
             <Metric label="Approval required" value={state.commandCenter.approvalRequired ? 'YES' : 'NO'} />
+            <Metric label="Independent Review" value={state.commandCenter.pendingReview ? 'PENDING' : '없음'} />
+            <Metric label="QA" value={state.commandCenter.qaStatus} />
+            <Metric label="PD Acceptance" value={state.commandCenter.pdAcceptance} />
             <Metric label="최근 Checkpoint" value={state.commandCenter.latestCheckpoint ? date(state.commandCenter.latestCheckpoint.createdAt) : '없음'} />
           </div>
         </div>

@@ -186,16 +186,15 @@ export class OrganizationService {
       if (!approval || approval.status !== 'approved') throw new CoreError('CONFLICT', 'PD acceptance approval must be approved before completion');
       return this.store.setPlan(planId, 'completed', 'completed');
     }
-    const next: Partial<Record<typeof plan.stage, { gate: GateKind; stage: typeof plan.stage }>> = {
-      validation: { gate: 'validation', stage: 'independent_review' },
-      independent_review: { gate: 'independent_review', stage: 'qa' },
-    };
-    const transition = next[plan.stage];
-    if (!transition) throw new CoreError('INVALID_TRANSITION', `Plan cannot advance from ${plan.stage}`);
-    if (this.store.latestGate(planId, transition.gate)?.result !== 'PASS') {
-      throw new CoreError('CONFLICT', `${transition.gate} must PASS before advancing`);
+    if (plan.stage === 'validation') {
+      if (this.store.latestGate(planId, 'validation')?.result !== 'PASS') throw new CoreError('CONFLICT', 'validation must PASS before advancing');
+      return this.store.setPlan(planId, 'active', 'independent_review');
     }
-    return this.store.setPlan(planId, 'active', transition.stage);
+    if (plan.stage === 'independent_review') {
+      if (this.store.latestGate(planId, 'independent_review')?.result !== 'PASS') throw new CoreError('CONFLICT', 'independent_review must PASS before advancing');
+      return this.store.setPlan(planId, 'active', 'qa');
+    }
+    throw new CoreError('INVALID_TRANSITION', `Plan cannot advance from ${plan.stage}`);
   }
 
   rework(planId: string): OrganizationPlan {

@@ -377,3 +377,51 @@ test('26. Organization API creates, starts and reads PD plan', async () => {
     ctx.work.clean();
   }
 });
+
+
+test('27. unknown dependency key is rejected before persistence', () => {
+  const ctx = setup();
+  try {
+    assert.throws(() => ctx.organization.createPlan(ctx.project.id, {
+      objective: 'unknown dependency',
+      tasks: [{ key: 'work', title: 'work', role: 'Coding', provider: 'SYSTEM', dependsOn: ['missing'] }],
+    }), (error: unknown) => error instanceof CoreError && error.code === 'INVALID_INPUT');
+    assert.equal(ctx.organization.state(ctx.project.id).plan, null);
+  } finally { ctx.engine.close(); ctx.work.clean(); }
+});
+
+test('28. unassigned Core task cannot be routed as Organization work', () => {
+  const ctx = setup();
+  try {
+    const task = ctx.engine.repository.createTask(ctx.project.id, 'Legacy task');
+    ctx.engine.repository.setTaskStatus(task.id, 'ready');
+    assert.throws(() => ctx.organization.route(task.id), (error: unknown) =>
+      error instanceof CoreError && error.code === 'NOT_FOUND');
+  } finally { ctx.engine.close(); ctx.work.clean(); }
+});
+
+test('29. GPT_HIGH dispatch reuses the real Manual Handoff path', async () => {
+  const ctx = setup();
+  const app = createApp(ctx.engine);
+  try {
+    const plan = ctx.organization.createPlan(ctx.project.id, {
+      objective: 'High dispatch',
+      tasks: [{ key: 'work', title: 'High reasoning', description: 'Review the implementation', role: 'Planning', provider: 'GPT_HIGH' }],
+    });
+    ctx.organization.start(plan.id);
+    const task = ctx.organization.stateByPlan(plan.id).tasks[0]!.task;
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/organization/projects/${ctx.project.id}/tasks/${task.id}/dispatch`,
+    });
+    assert.equal(response.statusCode, 200);
+    const body = response.json() as { provider: string; handoff: { id: string; taskId: string | null; status: string } };
+    assert.equal(body.provider, 'GPT_HIGH');
+    assert.equal(body.handoff.taskId, task.id);
+    assert.equal(body.handoff.status, 'awaiting_response');
+  } finally {
+    await app.close();
+    ctx.engine.close();
+    ctx.work.clean();
+  }
+});

@@ -49,7 +49,7 @@ export class OrganizationStore {
     };
   }
 
-  private assignment(row: Row): OrganizationAssignment {
+  private assignmentFromRow(row: Row): OrganizationAssignment {
     return {
       taskId: String(row.task_id), planId: String(row.plan_id), role: row.role as OrganizationRole,
       priority: Number(row.priority), provider: row.provider as OrganizationProvider,
@@ -98,12 +98,12 @@ export class OrganizationStore {
 
   listAssignments(planId: string): OrganizationAssignment[] {
     this.get(planId);
-    return (this.db.prepare('SELECT * FROM organization_assignments WHERE plan_id = ? ORDER BY priority, created_at, task_id').all(planId) as Row[]).map(row => this.assignment(row));
+    return (this.db.prepare('SELECT * FROM organization_assignments WHERE plan_id = ? ORDER BY priority, created_at, task_id').all(planId) as Row[]).map(row => this.assignmentFromRow(row));
   }
 
   assignment(taskId: string): OrganizationAssignment | null {
     const row = this.db.prepare('SELECT * FROM organization_assignments WHERE task_id = ?').get(taskId) as Row | undefined;
-    return row ? this.assignment(row) : null;
+    return row ? this.assignmentFromRow(row) : null;
   }
 
   dependencies(taskId: string): OrganizationDependency[] {

@@ -8,7 +8,7 @@ import { schemaVersion, migrate } from '../src/core/migrations.js';
 import { CoreError } from '../src/core/domain.js';
 import { committedFixture, fixture } from './helpers.js';
 
-test('SQLite migration 1 to 4 preserves records and is idempotent', () => {
+test('SQLite migration 1 to 5 preserves records and is idempotent', () => {
   const work = fixture();
   try {
     const db = new CoreDatabase(join(work.path, 'state.sqlite'), false);

@@ -157,7 +157,7 @@ function runProbe(definition: McpDefinition, era: 'modern' | 'legacy', timeoutMs
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      try { child.kill(); } catch {}
+      try { child.kill(); } catch { /* Process may already be gone. */ }
       resolveResult(result);
     };
     const timer = setTimeout(() => finish({

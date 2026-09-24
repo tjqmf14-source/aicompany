@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-09-24 — Phase 6 Capability / Skill / MCP Manager
+
+### Added
+
+- SQLite schema migration v6 and durable Capability Manager state
+- multi-axis capability discovery/install/auth/cost/verification/runtime/enablement/approval model
+- capability source trust, checks, dependencies, operations and file-change evidence
+- strict local Skill discovery, Approval-gated install and hash-safe rollback
+- MCP config discovery with secret-value redaction
+- ZERO-COST/source-trust gates and modern/legacy MCP probes
+- deterministic MCP child-process cleanup
+- Capability Manager API and Dashboard integration
+- 46 Phase 6 acceptance/security tests
+
+### QA
+
+- Phase 6: 46/46 PASS
+- Phase 1-5 regression: 66/66 PASS
+- total: 112/112 PASS
+- typecheck / lint / build / git diff --check PASS on Run #64
+- npm audit: 0 vulnerabilities
+
+### Not included
+
+- arbitrary remote Skill search/install
+- secret-forwarding MCP execution
+- paid or unknown-cost activation
+- Phase 7 parallel agents / Git worktrees
+- Phase 8 expanded security / recovery
+- Phase 9 Windows packaging
+
 ## 2026-09-24 — Phase 5 AI Company Organization / Executive PD
 
 ### Added

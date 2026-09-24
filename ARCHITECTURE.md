@@ -130,3 +130,14 @@ Organization API endpoints are under `/api/organization/*` and cover plan creati
 - Capability/Skill/MCP auto-management remains Phase 6.
 - Parallel agents/Git worktrees remain Phase 7.
 - Security/recovery expansion remains Phase 8.
+
+
+## Phase 6 extension — Capability / Skill / MCP Manager
+
+Phase 6 adds `src/capabilities` and SQLite migration 6. Capability state is persisted across independent discovery, installation, authentication, cost, verification, runtime, enablement and approval axes. Explicit verification/runtime failures are ERROR, while paid and unknown-cost capabilities remain blocked by the ZERO-COST policy.
+
+Skill management is intentionally constrained: local `SKILL.md` trees are statically validated, unsafe names and symlink/junction traversal are rejected, and source hashes are recorded. Installation requires Core Approval and Checkpoint, re-validates the approved source before mutation, never overwrites an existing destination, and rolls back only unchanged files created by that operation. Static validation does not claim Codex runtime recognition.
+
+MCP management reads supported local configuration, records trust/cost/auth requirements, redacts credential values and refuses automatic execution for paid, unknown-cost, untrusted or credential-dependent definitions. Approved free definitions may receive a bounded modern `server/discover` or legacy `initialize` protocol probe. Probe child processes are explicitly terminated and awaited.
+
+The API under `/api/capability-manager/*` provides discovery, evidence/detail, Skill install/rollback, MCP verification and enable/disable controls. Dashboard capability state comes from the durable registry and recorded operations.

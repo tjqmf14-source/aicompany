@@ -295,7 +295,7 @@ test('14. error state returns explicit not-found response', async () => {
   } finally { await ctx.clean(); }
 });
 
-test('15. unsupported capability is explicit', async () => {
+test('15. undiscovered capability is explicit', async () => {
   const ctx = setup();
   try {
     const project = await createProject(ctx.app, ctx.work.path);
@@ -304,6 +304,6 @@ test('15. unsupported capability is explicit', async () => {
     const rows = response.json() as { name: string; status: string }[];
     const mcp = rows.find(item => item.name === 'MCP');
     assert.ok(mcp);
-    assert.equal(mcp.status, 'UNSUPPORTED');
+    assert.equal(mcp.status, 'UNVERIFIED');
   } finally { await ctx.clean(); }
 });

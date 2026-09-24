@@ -119,6 +119,22 @@ export class CapabilityManagerService {
     const project = this.engine.repository.getProject(projectId);
     const checkedAt = now();
 
+    for (const existing of this.store.list(projectId)) {
+      if (existing.name.startsWith('Skill:')) {
+        this.store.patch(existing.id, {
+          discoveryState: 'NOT_FOUND', installationState: 'NOT_INSTALLED',
+          verificationState: 'NOT_RUN', runtimeState: 'NOT_CHECKED', lastCheckedAt: checkedAt,
+        });
+        this.syncLegacy(projectId, existing.name);
+      } else if (existing.name.startsWith('MCP:')) {
+        this.store.patch(existing.id, {
+          discoveryState: 'NOT_FOUND', installationState: 'UNKNOWN',
+          verificationState: 'NOT_RUN', runtimeState: 'NOT_CHECKED', lastCheckedAt: checkedAt,
+        });
+        this.syncLegacy(projectId, existing.name);
+      }
+    }
+
     const git = commandVersion('git');
     this.observe({
       projectId, name: 'Git', type: 'CLI',

@@ -167,9 +167,9 @@ export function capabilityOverallStatus(capability: ManagedCapability): Capabili
   if (capability.discoveryState === 'NOT_FOUND') return 'MISSING_DEPENDENCY';
   if (capability.costState === 'PAID' || capability.costState === 'USAGE_BASED_PAID' || capability.costState === 'UNKNOWN_COST') return 'BLOCKED_BY_COST';
   if (capability.installationState === 'NOT_INSTALLED' || capability.installationState === 'PARTIAL') return 'MISSING_DEPENDENCY';
+  if (capability.verificationState === 'FAIL' || capability.runtimeState === 'FAILED') return 'ERROR';
   if (capability.authState === 'AUTH_REQUIRED') return 'AUTH_REQUIRED';
   if (capability.enablementState === 'DISABLED') return 'DISABLED';
-  if (capability.verificationState === 'FAIL' || capability.runtimeState === 'FAILED') return 'ERROR';
   if (capability.discoveryState === 'NOT_CHECKED' || capability.verificationState !== 'PASS' || capability.runtimeState === 'NOT_CHECKED') return 'UNVERIFIED';
   if (capability.installationState === 'UNKNOWN' || capability.authState === 'UNKNOWN') return 'UNVERIFIED';
   return 'AVAILABLE';

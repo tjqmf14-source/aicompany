@@ -271,7 +271,7 @@ export class CapabilityStore {
       metadata: input.metadata ?? {},
       checkedAt: now(),
     };
-    this.db.prepare('INSERT INTO capability_sources VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+    this.db.prepare('INSERT INTO capability_sources VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
       source.id, source.capabilityId, source.trustState, source.sourceKind, source.location,
       source.version, source.license, source.costState, source.installMethod,
       JSON.stringify(source.metadata), source.checkedAt,

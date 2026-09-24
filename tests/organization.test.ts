@@ -66,11 +66,11 @@ function toQa(ctx: ReturnType<typeof setup>) {
   return ctx.organization.advance(review.id);
 }
 
-test('1. migration v5 is current schema', () => {
+test('1. migration v6 is current schema', () => {
   const work = committedFixture();
   try {
     const db = new CoreDatabase(join(work.path, 'state.sqlite'));
-    assert.equal(schemaVersion(db.db), 5);
+    assert.equal(schemaVersion(db.db), 6);
     db.close();
   } finally { work.clean(); }
 });

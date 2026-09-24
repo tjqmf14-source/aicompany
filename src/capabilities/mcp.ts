@@ -156,13 +156,49 @@ function runProbe(definition: McpDefinition, era: 'modern' | 'legacy', timeoutMs
     let stdout = '';
     let stderr = '';
     let settled = false;
-    const finish = (result: McpProbeResult): void => {
+    let finishing = false;
+    let forceTimer: ReturnType<typeof setTimeout> | null = null;
+    let hardStopTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const resolveOnce = (result: McpProbeResult): void => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      try { child.kill(); } catch { /* Process may already be gone. */ }
+      if (forceTimer) clearTimeout(forceTimer);
+      if (hardStopTimer) clearTimeout(hardStopTimer);
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+      child.stdin?.destroy();
       resolveResult(result);
     };
+
+    const finish = (result: McpProbeResult): void => {
+      if (settled || finishing) return;
+      finishing = true;
+      clearTimeout(timer);
+      try { child.stdin?.end(); } catch { /* Stdin may already be closed. */ }
+
+      child.once('close', () => resolveOnce(result));
+      try { child.kill('SIGTERM'); } catch {
+        child.unref();
+        resolveOnce(result);
+        return;
+      }
+
+      forceTimer = setTimeout(() => {
+        if (settled) return;
+        try { child.kill('SIGKILL'); } catch { /* Process may already be gone. */ }
+      }, 250);
+      forceTimer.unref();
+
+      hardStopTimer = setTimeout(() => {
+        if (settled) return;
+        child.unref();
+        resolveOnce(result);
+      }, 1000);
+      hardStopTimer.unref();
+    };
+
     const timer = setTimeout(() => finish({
       ok: false,
       era: null,
@@ -206,8 +242,8 @@ function runProbe(definition: McpDefinition, era: 'modern' | 'legacy', timeoutMs
         return;
       }
     });
-    child.on('exit', code => {
-      if (!settled) finish({
+    child.on('close', code => {
+      if (!settled && !finishing) resolveOnce({
         ok: false,
         era: null,
         detail: `MCP process exited before a valid response (code ${code ?? 'unknown'})${stderr ? `: ${stderr}` : ''}`,

@@ -15,11 +15,14 @@ const trust = (value: unknown, projectOwned: boolean): SourceTrustState =>
   projectOwned && value === 'USER_APPROVED' ? 'USER_APPROVED'
     : value === 'OFFICIAL' ? 'OFFICIAL'
       : value === 'VERIFIED_REPOSITORY' ? 'VERIFIED_REPOSITORY'
-        : 'UNKNOWN';
+        : value === 'BLOCKED' ? 'BLOCKED'
+          : 'UNKNOWN';
 const cost = (value: unknown, projectOwned: boolean): CostState =>
-  projectOwned && value === 'FREE_LOCAL' ? 'FREE_LOCAL'
-    : projectOwned && value === 'FREE_EXISTING_ACCOUNT' ? 'FREE_EXISTING_ACCOUNT'
-      : 'UNKNOWN_COST';
+  value === 'PAID' ? 'PAID'
+    : value === 'USAGE_BASED_PAID' ? 'USAGE_BASED_PAID'
+      : projectOwned && value === 'FREE_LOCAL' ? 'FREE_LOCAL'
+        : projectOwned && value === 'FREE_EXISTING_ACCOUNT' ? 'FREE_EXISTING_ACCOUNT'
+          : 'UNKNOWN_COST';
 
 function fromMap(map: JsonObject, configPath: string, projectOwned: boolean): McpDefinition[] {
   const result: McpDefinition[] = [];

@@ -163,9 +163,10 @@ export interface McpProbeResult {
 }
 
 export function capabilityOverallStatus(capability: ManagedCapability): CapabilityOverallStatus {
-  if (capability.costState === 'PAID' || capability.costState === 'USAGE_BASED_PAID' || capability.costState === 'UNKNOWN_COST') return 'BLOCKED_BY_COST';
   if (capability.discoveryState === 'ERROR' || capability.verificationState === 'ERROR' || capability.runtimeState === 'ERROR') return 'ERROR';
-  if (capability.discoveryState === 'NOT_FOUND' || capability.installationState === 'NOT_INSTALLED' || capability.installationState === 'PARTIAL') return 'MISSING_DEPENDENCY';
+  if (capability.discoveryState === 'NOT_FOUND') return 'MISSING_DEPENDENCY';
+  if (capability.costState === 'PAID' || capability.costState === 'USAGE_BASED_PAID' || capability.costState === 'UNKNOWN_COST') return 'BLOCKED_BY_COST';
+  if (capability.installationState === 'NOT_INSTALLED' || capability.installationState === 'PARTIAL') return 'MISSING_DEPENDENCY';
   if (capability.authState === 'AUTH_REQUIRED') return 'AUTH_REQUIRED';
   if (capability.enablementState === 'DISABLED') return 'DISABLED';
   if (capability.verificationState === 'FAIL' || capability.runtimeState === 'FAILED') return 'ERROR';

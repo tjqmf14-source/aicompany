@@ -75,7 +75,9 @@ function writeMcpConfig(ctx: ReturnType<typeof setup>, servers: Record<string, u
 }
 
 function writeMcpServer(ctx: ReturnType<typeof setup>, name: string, mode: 'legacy' | 'modern' | 'fail'): string {
-  const path = join(ctx.work.path, '.ai-company', name + '.mjs');
+  const dir = join(ctx.work.path, '.ai-company');
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, name + '.mjs');
   let behavior: string;
   if (mode === 'fail') {
     behavior = 'process.exit(2);\n';

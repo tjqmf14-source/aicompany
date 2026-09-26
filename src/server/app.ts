@@ -28,7 +28,7 @@ const optionalVersion = (value: unknown): number | undefined => {
 export function createApp(engine: CoreEngine): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: 1024 * 1024 });
   app.addHook('onRequest', async (request, reply) => {
-    const host = request.headers.host?.split(':')[0]?.replace(/^\[|\]$/g, '').toLowerCase() ?? '';
+    const host = request.hostname.replace(/^\[|\]$/g, '').toLowerCase();
     if (host && host !== 'localhost' && host !== '127.0.0.1' && host !== '::1') {
       return reply.code(403).send({ error: 'LOCAL_ONLY', message: 'AI Company API accepts loopback hosts only' });
     }

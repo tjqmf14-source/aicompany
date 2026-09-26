@@ -206,4 +206,27 @@ This documentation commit must pass the same GitHub Actions gate before merge.
 
 ## Main integration
 
-Pending documentation CI and PR merge.
+Phase 7 was merged from verified branch HEAD `e3203501bd2d8d3c8c3620a717eaf773a8470548` into `main`.
+
+- Previous main: `c60a9f3ec4905f2a82cab94a34df590174f8dbb5`
+- PR: #5 — merged
+- Merge method: normal merge commit
+- Merge commit: `b314a3899ab9c25eec94048ed3f8c42eb7271d7c`
+- Force push: not used
+- Main verification: Run #72
+- Main Run ID: `36222166911`
+- Main Job ID: `108349347460`
+
+Main Run #72 result on the exact merge SHA:
+
+- `npm ci`: PASS
+- `git diff --check`: PASS
+- `npm run typecheck`: PASS
+- `npm run lint`: PASS
+- Phase 7: **32/32 PASS**
+- Phase 1-6 regression: **112/112 PASS**
+- `npm test`: **144/144 PASS**
+- `npm run build`: PASS
+- `npm audit --audit-level=high`: PASS — **0 vulnerabilities**
+
+This documentation update must itself pass the full `main` GitHub Actions workflow before Phase 7 is closed.

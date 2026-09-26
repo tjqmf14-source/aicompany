@@ -11,6 +11,7 @@
     "src/dashboard/**/*.ts",
     "src/organization/**/*.ts",
     "src/capabilities/**/*.ts",
+    "src/parallel/**/*.ts",
     "src/server/**/*.ts",
     "tests/*.ts"
   ]

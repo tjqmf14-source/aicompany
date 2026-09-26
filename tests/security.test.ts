@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { writeFileSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { CoreDatabase } from '../src/core/database.js';
@@ -459,4 +459,13 @@ test('32. audits endpoint preserves chronological evidence', async () => {
     await app.close();
     clean(ctx);
   }
+});
+
+
+test('33. Dashboard source renders Phase 8 security release indicators', () => {
+  const source = readFileSync('src/web/main.tsx', 'utf8');
+  assert.match(source, /Security Audit/);
+  assert.match(source, /Release Ready/);
+  assert.match(source, /Recovery blockers/);
+  assert.match(source, /state\.security\.releaseReady/);
 });

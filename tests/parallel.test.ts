@@ -94,9 +94,9 @@ function approve(ctx: Setup, lane: ParallelLane): void {
   ctx.engine.repository.resolveApproval(lane.approvalId, 'approved');
 }
 
-test('1. schema v7 is current', () => {
+test('1. schema v8 is current', () => {
   const ctx = setup();
-  try { assert.equal(schemaVersion(ctx.engine.database.db), 7); }
+  try { assert.equal(schemaVersion(ctx.engine.database.db), 8); }
   finally { cleanup(ctx); }
 });
 
@@ -105,8 +105,8 @@ test('2. v6 migrates to v7', () => {
   try {
     const db = new CoreDatabase(join(work.path, 'migration.sqlite'), false);
     assert.equal(migrate(db.db, 6), 6);
-    assert.equal(migrate(db.db), 7);
-    assert.equal(schemaVersion(db.db), 7);
+    assert.equal(migrate(db.db), 8);
+    assert.equal(schemaVersion(db.db), 8);
     db.close();
   } finally { work.clean(); }
 });

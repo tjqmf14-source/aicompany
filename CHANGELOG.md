@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-09-26 — Phase 7 Parallel Agent / Git Worktree
+
+### Added
+
+- SQLite schema migration v7 for durable parallel worker lanes
+- real Git worktree + managed branch isolation per Task
+- Organization plan / role / provider linkage for logical workers
+- Core Run lifecycle linkage for parallel work
+- optional path-scope reservation and overlap blocking
+- changed-file scope enforcement on submission
+- committed result / ancestry verification
+- actual primary-vs-worker file conflict detection
+- Checkpoint + manual Approval integration gate
+- stale target HEAD protection
+- `git merge --no-ff --no-commit` integration staging
+- typecheck / lint / test / build before integration commit
+- automatic merge abort on validation failure
+- restart recovery for interrupted worker/integration lanes
+- safe completed-lane worktree/branch release
+- Parallel Fastify API
+- Dashboard parallel lane state and durable events
+- 32 Phase 7 acceptance/security tests
+
+### QA
+
+- Phase 7: 32/32 PASS
+- Phase 1-6 regression: 112/112 PASS
+- total: 144/144 PASS
+- typecheck / lint / build / git diff --check PASS on functional Run #70
+- npm audit: 0 vulnerabilities
+
+### Not included
+
+- autonomous GPT High API invocation
+- fake multi-agent model processes
+- silent redirection of existing Codex execution into worktrees
+- Phase 8 expanded security / recovery audit
+- Phase 9 Windows packaging
+
 ## 2026-09-24 — Phase 6 Capability / Skill / MCP Manager
 
 ### Added

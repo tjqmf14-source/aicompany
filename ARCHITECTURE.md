@@ -141,3 +141,20 @@ Skill management is intentionally constrained: local `SKILL.md` trees are static
 MCP management reads supported local configuration, records trust/cost/auth requirements, redacts credential values and refuses automatic execution for paid, unknown-cost, untrusted or credential-dependent definitions. Approved free definitions may receive a bounded modern `server/discover` or legacy `initialize` protocol probe. Probe child processes are explicitly terminated and awaited.
 
 The API under `/api/capability-manager/*` provides discovery, evidence/detail, Skill install/rollback, MCP verification and enable/disable controls. Dashboard capability state comes from the durable registry and recorded operations.
+
+
+## Phase 7 extension — Parallel Agent / Git Worktree
+
+Phase 7 adds `src/parallel` and SQLite migration 7. A parallel agent is represented as a durable worker lane attached to a real Core Task and, when present, its Phase 5 Organization plan/role/provider. Phase 7 does not invent background model processes: the lane is the isolated Git execution substrate that a provider or human worker operates on.
+
+Each lane owns a generated `ai-company/parallel/*` branch and a real Git worktree stored outside the primary worktree. Primary and worker state are therefore physically isolated. Optional repository-relative scope paths can reserve areas of the tree; overlapping active scopes are rejected and submitted results are checked against their declared scope.
+
+The lane lifecycle is persisted in SQLite and linked to a real Core Run. Submission requires a clean committed result branch descending from the captured base HEAD. The service stores the result HEAD and actual changed-file list before integration review.
+
+Integration is deliberately two-phase. A preview compares the result changes with primary changes since the lane base, captures a Core Checkpoint and requests manual Approval. After Approval the exact target/result HEADs are rechecked, Git stages a no-commit merge, and `typecheck`, `lint`, `test`, and `build` run against the staged merge. Validation is also checked for unexpected tracked-file mutation. Only a complete PASS creates the merge commit; failure aborts the merge before commit.
+
+Startup recovery marks unsafe in-flight states as `RECOVERY_REQUIRED`. Known interrupted merges can be safely aborted when MERGE_HEAD matches the recorded result, completed merge commits can be recognized by parent identity, committed worker results can return to REVIEW, and interrupted workers can resume with a new Core Run. Unknown states are blocked for manual review.
+
+Completed lanes can be released only after the result is confirmed integrated into primary history and both primary and worker worktrees are clean. The managed worktree and merged branch are then removed through normal Git safety checks.
+
+Parallel state is available through `/api/parallel/*` and is included in Dashboard aggregate state and durable Activity events.

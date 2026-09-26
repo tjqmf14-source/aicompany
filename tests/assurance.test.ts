@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  mkdirSync, rmSync, symlinkSync, writeFileSync,
+  rmSync, symlinkSync, writeFileSync,
 } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import test from 'node:test';

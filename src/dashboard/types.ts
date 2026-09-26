@@ -5,6 +5,7 @@ import type { HandoffSession } from '../handoff/store.js';
 import type { CodexExecution } from '../codex/store.js';
 import type { OrganizationState } from '../organization/types.js';
 import type { CapabilityOperation } from '../capabilities/types.js';
+import type { ParallelLane } from '../parallel/types.js';
 
 export type DashboardActionState = 'AVAILABLE' | 'UNAVAILABLE' | 'NOT_IMPLEMENTED' | 'AUTH_REQUIRED' | 'BLOCKED';
 export type DashboardCapabilityStatus =
@@ -139,6 +140,7 @@ export interface DashboardRealtimeState {
   approvals: Approval[];
   handoffs: HandoffSession[];
   organization: OrganizationState;
+  parallelLanes: ParallelLane[];
   controls: DashboardControls;
 }
 

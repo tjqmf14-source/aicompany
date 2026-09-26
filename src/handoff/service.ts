@@ -10,10 +10,12 @@ import { validateRelativePath, validateResponseFile } from './paths.js';
 import { ManualHandoffProvider, type HandoffProvider } from './provider.js';
 import { classifyCommand, validateHighResponse } from './schema.js';
 import { HandoffStore, type CheckResult, type FileBackup, type HandoffCheckpoint, type HandoffSession, type Preview } from './store.js';
+import { sanitizedProcessEnv } from '../security/environment.js';
+import { redactSensitive } from '../security/redaction.js';
 
 const scripts = ['typecheck', 'lint', 'test', 'build'] as const;
 const sha = (data: Buffer): string => createHash('sha256').update(data).digest('hex');
-const redact = (value: string): string => value.replace(/sk-[A-Za-z0-9_-]{12,}/g, '[REDACTED]').replace(/Bearer\s+[^\s]+/gi, 'Bearer [REDACTED]').slice(0, 20_000);
+const redact = (value: string): string => redactSensitive(value);
 
 function gitCheck(root: string, args: string[]): number {
   const result = spawnSync('git', ['-c', 'core.fsmonitor=false', ...args], { cwd: root, windowsHide: true, timeout: 10_000, encoding: 'utf8' });
@@ -53,7 +55,7 @@ function runValidation(root: string, name: typeof scripts[number]): CheckResult 
   const args = windows ? ['/d', '/s', '/c', `npm.cmd run ${name}`] : ['run', name];
   const result = spawnSync(executable, args, {
     cwd: root, encoding: 'utf8', windowsHide: true, timeout: 120_000,
-    maxBuffer: 5 * 1024 * 1024, env: { ...process.env, CI: '1', NO_COLOR: '1' },
+    maxBuffer: 5 * 1024 * 1024, env: sanitizedProcessEnv({ CI: '1', NO_COLOR: '1' }),
   });
   return {
     command: name, status: result.status === 0 && !result.error ? 'PASS' : 'FAIL', exitCode: result.status,

@@ -94,6 +94,7 @@ export class ParallelService {
 
     const scopePaths = [...new Set(rawScopes.map(scopePath))].sort();
     const active = this.store.active(project.id);
+    if (active.some(lane => lane.taskId === task.id)) throw new CoreError('CONFLICT', 'Task already has an active parallel lane');
     if (active.length >= 8) throw new CoreError('CONFLICT', 'A project can have at most 8 active parallel lanes');
     for (const lane of active) for (const left of scopePaths) for (const right of lane.scopePaths) {
       if (scopesOverlap(left, right)) throw new CoreError('CONFLICT', `Parallel scope overlaps lane ${lane.id}: ${left} / ${right}`);
@@ -161,6 +162,9 @@ export class ParallelService {
     if (!git.isAncestor(lane.baseHead, snapshot.head)) throw new CoreError('CONFLICT', 'Parallel result no longer descends from its approved base');
     const changedFiles = git.changedFiles(lane.baseHead, snapshot.head);
     if (!changedFiles.length) throw new CoreError('CONFLICT', 'Parallel result contains no net file changes');
+    if (lane.scopePaths.length && changedFiles.some(path => !lane.scopePaths.some(scope => path === scope || path.startsWith(`${scope}/`)))) {
+      throw new CoreError('CONFLICT', 'Parallel result changed files outside its declared scope');
+    }
 
     if (!lane.runId) throw new CoreError('CONFLICT', 'Parallel lane has no Core Run');
     const run = this.engine.repository.getRun(lane.runId);

@@ -122,9 +122,10 @@ export class SecurityService {
       ? { key: 'git_head', status: 'PASS', summary: 'Git HEAD is readable', evidence: repository.stdout.trim().slice(0, 200) }
       : { key: 'git_head', status: 'FAIL', summary: 'Git HEAD cannot be verified', evidence: repository.output });
 
-    const unresolvedMarkers = [
+    const unresolvedMarkers: string[] = ([
       ['MERGE_HEAD', 'merge'], ['CHERRY_PICK_HEAD', 'cherry-pick'], ['REVERT_HEAD', 'revert'],
-    ].filter(([marker]) => git(project.rootPath, ['rev-parse', '-q', '--verify', marker]).ok).map(([, label]) => label);
+    ] as const).flatMap(([marker, label]) =>
+      git(project.rootPath, ['rev-parse', '-q', '--verify', marker]).ok ? [label] : []);
     const gitDir = git(project.rootPath, ['rev-parse', '--git-dir']);
     if (gitDir.ok) {
       const base = gitDir.stdout.trim();

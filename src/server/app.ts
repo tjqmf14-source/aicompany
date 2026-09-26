@@ -5,6 +5,7 @@ import { schemaVersion } from '../core/migrations.js';
 import { registerDashboardRoutes } from './dashboard.js';
 import { registerOrganizationRoutes } from './organization.js';
 import { registerCapabilityRoutes } from './capabilities.js';
+import { registerParallelRoutes } from './parallel.js';
 
 type Params = { id: string };
 type TaskParams = { id: string; taskId: string };
@@ -91,6 +92,7 @@ export function createApp(engine: CoreEngine): FastifyInstance {
   app.get('/api/capabilities', async () => engine.repository.listCapabilities());
   registerOrganizationRoutes(app, engine);
   registerCapabilityRoutes(app, engine);
+  registerParallelRoutes(app, engine);
   registerDashboardRoutes(app, engine);
   return app;
 }

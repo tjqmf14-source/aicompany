@@ -110,9 +110,9 @@ export interface DashboardCommandCenter {
   pendingReview: boolean;
   qaStatus: 'PASS' | 'FAIL' | 'NOT RUN';
   pdAcceptance: 'PASS' | 'FAIL' | 'NOT RUN';
-  securityStatus: 'PASS' | 'WARN' | 'FAIL' | 'NOT RUN';
-  recoveryStatus: 'PASS' | 'WARN' | 'FAIL' | 'NOT RUN';
-  releaseQaStatus: 'PASS' | 'WARN' | 'FAIL' | 'NOT RUN';
+  securityStatus: 'RUNNING' | 'PASS' | 'WARN' | 'FAIL' | 'NOT RUN';
+  recoveryStatus: 'RUNNING' | 'PASS' | 'WARN' | 'FAIL' | 'NOT RUN';
+  releaseQaStatus: 'RUNNING' | 'PASS' | 'WARN' | 'FAIL' | 'NOT RUN';
 }
 
 export interface DashboardControls {

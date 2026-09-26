@@ -229,4 +229,27 @@ Windows installer signing/packaging and release-file verification belong to Phas
 
 ## Main integration
 
-Pending documentation CI and PR merge.
+Phase 8 was merged from verified branch HEAD `cbdd89f902b6738343a603abbee13c1f3e8e3189` into `main`.
+
+- Previous main: `cffc33b683413dd241754c2f25d4ce228bcfd6fd`
+- PR: #7 — merged
+- Merge method: normal merge commit
+- Merge commit: `cf951602a5415fd89e8a0042f07869469e7c5ffb`
+- Force push: not used
+- Main verification: Run #92
+- Main Run ID: `36224672994`
+- Main Job ID: `108356267604`
+
+Main Run #92 result on the exact merge SHA:
+
+- `npm ci`: PASS
+- `git diff --check`: PASS
+- `npm run typecheck`: PASS
+- `npm run lint`: PASS
+- Phase 8: **33/33 PASS**
+- Phase 1-7 regression: **144/144 PASS**
+- `npm test`: **177/177 PASS**
+- `npm run build`: PASS
+- `npm audit --audit-level=high`: PASS — **0 vulnerabilities**
+
+This documentation update must itself pass the full `main` GitHub Actions workflow before Phase 8 is closed.

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import test from 'node:test';
 import { CoreDatabase } from '../src/core/database.js';
@@ -524,5 +524,29 @@ test('32. parallel lane lifecycle writes durable events', () => {
     const types = ctx.engine.repository.listEvents(ctx.project.id).map(event => event.type);
     assert.ok(types.includes('parallel.lane_created'));
     assert.ok(types.includes('parallel.lane_status_changed'));
+  } finally { cleanup(ctx); }
+});
+
+
+test('33. managed integration ignores repository Git hooks', { skip: process.platform === 'win32' }, () => {
+  const ctx = setup();
+  try {
+    const preCommit = join(ctx.work.path, '.git', 'hooks', 'pre-commit');
+    const preMerge = join(ctx.work.path, '.git', 'hooks', 'pre-merge-commit');
+    writeFileSync(preCommit, '#!/bin/sh\nexit 97\n');
+    writeFileSync(preMerge, '#!/bin/sh\nexit 98\n');
+    chmodSync(preCommit, 0o755);
+    chmodSync(preMerge, 0o755);
+
+    let lane = ctx.parallel.create(ctx.task.id);
+    lane = ctx.parallel.start(lane.id);
+    commitWorker(lane);
+    lane = ctx.parallel.submit(lane.id);
+    lane = ctx.parallel.requestIntegration(lane.id);
+    approve(ctx, lane);
+    lane = ctx.parallel.integrate(lane.id);
+
+    assert.equal(lane.status, 'COMPLETED');
+    assert.ok(lane.integrationCommit);
   } finally { cleanup(ctx); }
 });

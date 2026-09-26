@@ -6,6 +6,7 @@ import { CodexExecutionStore, type CodexExecution } from '../codex/store.js';
 import { resolveCodexJsPath } from '../codex/provider.js';
 import { OrganizationService } from '../organization/service.js';
 import { CapabilityManagerService } from '../capabilities/service.js';
+import { ParallelStore } from '../parallel/store.js';
 import type { OrganizationAssignment, OrganizationState } from '../organization/types.js';
 import type {
   DashboardAction, DashboardActivity, DashboardCapability, DashboardCodex, DashboardCommandCenter,
@@ -44,7 +45,7 @@ function category(event: Event): DashboardActivity['category'] {
   if (type.includes('test') || type.includes('validation')) return 'test';
   if (type.includes('git') || type.includes('checkpoint')) return 'git';
   if (type.includes('security')) return 'security';
-  if (type.includes('organization') || type.includes('run') || type.includes('task') || type.includes('project')) return 'workflow';
+  if (type.includes('parallel') || type.includes('organization') || type.includes('run') || type.includes('task') || type.includes('project')) return 'workflow';
   return 'system';
 }
 
@@ -133,12 +134,14 @@ export class DashboardService {
   readonly codex: CodexExecutionStore;
   readonly organization: OrganizationService;
   readonly capabilityManager: CapabilityManagerService;
+  readonly parallel: ParallelStore;
 
   constructor(readonly engine: CoreEngine) {
     this.handoffs = new HandoffStore(engine.database);
     this.codex = new CodexExecutionStore(engine.database);
     this.organization = new OrganizationService(engine);
     this.capabilityManager = new CapabilityManagerService(engine);
+    this.parallel = new ParallelStore(engine.database);
   }
 
   private taskViews(
@@ -222,6 +225,7 @@ export class DashboardService {
     const handoffs = this.handoffs.list(projectId);
     const codexRows = this.codex.list(projectId);
     const organization = this.organization.state(projectId);
+    const parallelLanes = this.parallel.list(projectId);
     const tasks = this.taskViews(projectId, handoffs, codexRows, organization);
     const currentTask = this.currentTask(tasks);
     const checkpoints = this.engine.repository.listCheckpoints(projectId);
@@ -277,6 +281,7 @@ export class DashboardService {
       approvals: [...approvals].reverse(),
       handoffs: [...handoffs].reverse(),
       organization,
+      parallelLanes,
       controls: this.controls(project, currentTask, approvals, handoffs, codexRows, git.dirty),
     };
   }

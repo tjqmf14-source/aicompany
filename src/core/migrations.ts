@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 
-export const LATEST_SCHEMA_VERSION = 6;
+export const LATEST_SCHEMA_VERSION = 7;
 
 const migrations = [
   {
@@ -294,6 +294,40 @@ const migrations = [
       CREATE INDEX capability_changes_operation_idx ON capability_changes(operation_id);
     `,
   },
+  {
+    version: 7,
+    sql: `
+      CREATE TABLE parallel_lanes (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+        task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE RESTRICT,
+        plan_id TEXT REFERENCES organization_plans(id) ON DELETE RESTRICT,
+        role TEXT CHECK(role IS NULL OR role IN ('Executive PD','Planning','Research','Design Director','UI/UX','Visual Design','Engineering Director','Coding','Code Review','QA','Security','Release')),
+        provider TEXT CHECK(provider IS NULL OR provider IN ('GPT_HIGH','CODEX','SYSTEM')),
+        status TEXT NOT NULL CHECK(status IN ('PREPARING','READY','WORKING','REVIEW','APPROVAL_PENDING','INTEGRATING','COMPLETED','FAILED','RECOVERY_REQUIRED','RELEASED')),
+        branch_name TEXT NOT NULL UNIQUE,
+        worktree_path TEXT NOT NULL UNIQUE,
+        base_head TEXT NOT NULL,
+        base_branch TEXT NOT NULL,
+        run_id TEXT REFERENCES runs(id) ON DELETE RESTRICT,
+        result_head TEXT,
+        changed_files_json TEXT NOT NULL CHECK(json_valid(changed_files_json)),
+        scope_paths_json TEXT NOT NULL CHECK(json_valid(scope_paths_json)),
+        target_head TEXT,
+        integration_commit TEXT,
+        approval_id TEXT REFERENCES approvals(id) ON DELETE RESTRICT,
+        validation_json TEXT NOT NULL CHECK(json_valid(validation_json)),
+        error TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX parallel_lanes_project_idx ON parallel_lanes(project_id, created_at);
+      CREATE INDEX parallel_lanes_status_idx ON parallel_lanes(project_id, status);
+      CREATE UNIQUE INDEX parallel_lanes_active_task_idx ON parallel_lanes(task_id)
+        WHERE status NOT IN ('COMPLETED','FAILED','RELEASED');
+    `,
+  },
+
 ] as const;
 
 export function schemaVersion(db: DatabaseSync): number {

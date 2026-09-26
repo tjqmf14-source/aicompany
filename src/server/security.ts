@@ -6,6 +6,7 @@ type ProjectParams = { id: string };
 
 export function registerSecurityRoutes(app: FastifyInstance, engine: CoreEngine): void {
   const security = new SecurityService(engine);
+  security.recoverStartupQa();
 
   app.get<{ Params: ProjectParams }>('/api/security/projects/:id', async request =>
     security.state(request.params.id));

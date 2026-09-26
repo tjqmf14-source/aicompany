@@ -158,3 +158,20 @@ Startup recovery marks unsafe in-flight states as `RECOVERY_REQUIRED`. Known int
 Completed lanes can be released only after the result is confirmed integrated into primary history and both primary and worker worktrees are clean. The managed worktree and merged branch are then removed through normal Git safety checks.
 
 Parallel state is available through `/api/parallel/*` and is included in Dashboard aggregate state and durable Activity events.
+
+
+## Phase 8 extension — Security / Recovery / QA
+
+Phase 8 adds `src/security` and SQLite migration 8. The layer is conservative: no audit or QA evidence means NOT READY, WARN is not release-ready, and unresolved recovery-required state blocks release readiness.
+
+Security audits persist deterministic checks for SQLite health/foreign keys, Git HEAD and unfinished operation state, working-tree state, bounded tracked secret heuristics, and unresolved recovery blockers. Dirty source is WARN; hard integrity/secret/recovery failures are FAIL/BLOCKED. Secret evidence stores affected paths rather than credential contents.
+
+Recovery aggregation covers Handoff `recovery_required`, Codex `recovery_required`, Parallel `RECOVERY_REQUIRED`, and active QA runs. QA rows left RUNNING after process termination become INTERRUPTED exactly at server startup. Dashboard reads are side-effect free.
+
+The Phase 8 QA runner records `git diff --check HEAD --`, typecheck, lint, test, build, and npm audit. Later checks continue after an earlier failure where possible. Repository state is captured before and after validation; a validation process that changes HEAD/branch/diff/porcelain state causes QA failure. Persisted output is bounded and credential-like strings are redacted.
+
+Release readiness requires a PASS QA run followed by a PASS security audit and zero recovery blockers. This is an evidence gate, not a claim of complete system security.
+
+The Fastify layer adds loopback Host validation in addition to the executable's existing `127.0.0.1` bind and emits `nosniff`, no-referrer, frame-deny and no-store response headers. Phase 8 remains a local-only application and does not add public-network authentication or TLS.
+
+Security endpoints live under `/api/security/*`. Dashboard aggregate state includes Security state, and COMMAND CENTER exposes Security Audit, Release Ready and Recovery blocker indicators.

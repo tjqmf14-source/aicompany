@@ -519,8 +519,8 @@ test('31. Parallel API rejects unsafe scope input', async () => {
 test('32. parallel lane lifecycle writes durable events', () => {
   const ctx = setup();
   try {
-    let lane = ctx.parallel.create(ctx.task.id);
-    lane = ctx.parallel.start(lane.id);
+    const lane = ctx.parallel.create(ctx.task.id);
+    ctx.parallel.start(lane.id);
     const types = ctx.engine.repository.listEvents(ctx.project.id).map(event => event.type);
     assert.ok(types.includes('parallel.lane_created'));
     assert.ok(types.includes('parallel.lane_status_changed'));

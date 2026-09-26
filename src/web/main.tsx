@@ -322,6 +322,9 @@ function App() {
             <Metric label="Independent Review" value={state.commandCenter.pendingReview ? 'PENDING' : '없음'} />
             <Metric label="QA" value={state.commandCenter.qaStatus} />
             <Metric label="PD Acceptance" value={state.commandCenter.pdAcceptance} />
+            <Metric label="Security Audit" value={state.security.latestAudit?.status ?? 'NOT RUN'} />
+            <Metric label="Release Ready" value={state.security.releaseReady ? 'YES' : 'NO'} />
+            <Metric label="Recovery blockers" value={state.security.recovery.blockers.length ? state.security.recovery.blockers.join(' · ') : '없음'} />
             <Metric label="최근 Checkpoint" value={state.commandCenter.latestCheckpoint ? date(state.commandCenter.latestCheckpoint.createdAt) : '없음'} />
           </div>
         </div>

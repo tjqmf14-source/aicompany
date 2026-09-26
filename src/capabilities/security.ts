@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { CoreError } from '../core/domain.js';
+import { sanitizedProcessEnv } from '../security/environment.js';
+import { redactSensitive } from '../security/redaction.js';
 
 export function sha256Buffer(data: Buffer): string {
   return createHash('sha256').update(data).digest('hex');
@@ -44,9 +46,7 @@ export function safeSkillName(value: string): string {
 }
 
 export function redact(text: string, max = 4000): string {
-  return text.slice(0, max)
-    .replace(/(?:sk|pk|rk|ghp|github_pat|xox[baprs])-?[A-Za-z0-9_-]{12,}/gi, '[REDACTED]')
-    .replace(/[A-Za-z0-9_-]{40,}/g, '[REDACTED]');
+  return redactSensitive(text, max);
 }
 
 export function hasSensitiveArgument(args: string[]): boolean {
@@ -71,8 +71,5 @@ export function safeExecutable(command: string): string | null {
 }
 
 export function sanitizedChildEnv(): NodeJS.ProcessEnv {
-  const allowed = ['PATH','Path','SYSTEMROOT','SystemRoot','WINDIR','TEMP','TMP','HOME','USERPROFILE','APPDATA','LOCALAPPDATA'];
-  const env: NodeJS.ProcessEnv = {};
-  for (const key of allowed) if (process.env[key] !== undefined) env[key] = process.env[key];
-  return env;
+  return sanitizedProcessEnv();
 }

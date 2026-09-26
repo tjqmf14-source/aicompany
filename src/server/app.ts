@@ -7,6 +7,7 @@ import { registerOrganizationRoutes } from './organization.js';
 import { registerCapabilityRoutes } from './capabilities.js';
 import { registerParallelRoutes } from './parallel.js';
 import { registerHttpSecurity } from '../security/http.js';
+import { registerAssuranceRoutes } from './assurance.js';
 
 type Params = { id: string };
 type TaskParams = { id: string; taskId: string };
@@ -95,6 +96,7 @@ export function createApp(engine: CoreEngine): FastifyInstance {
   registerOrganizationRoutes(app, engine);
   registerCapabilityRoutes(app, engine);
   registerParallelRoutes(app, engine);
+  registerAssuranceRoutes(app, engine);
   registerDashboardRoutes(app, engine);
   return app;
 }

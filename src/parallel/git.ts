@@ -80,7 +80,11 @@ export class ParallelGit {
   }
 
   mergeNoCommit(branchName: string): { ok: boolean; detail: string } {
-    const result = run(this.primary.rootPath, ['merge', '--no-ff', '--no-commit', branchName], 60_000);
+    const result = run(this.primary.rootPath, [
+      '-c', 'user.name=AI Company Bridge',
+      '-c', 'user.email=ai-company@local.invalid',
+      'merge', '--no-ff', '--no-commit', branchName,
+    ], 60_000);
     return { ok: result.status === 0, detail: (result.stderr || result.stdout).trim().slice(0, 4000) };
   }
 

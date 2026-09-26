@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 
-export const LATEST_SCHEMA_VERSION = 7;
+export const LATEST_SCHEMA_VERSION = 8;
 
 const migrations = [
   {
@@ -325,6 +325,34 @@ const migrations = [
       CREATE INDEX parallel_lanes_status_idx ON parallel_lanes(project_id, status);
       CREATE UNIQUE INDEX parallel_lanes_active_task_idx ON parallel_lanes(task_id)
         WHERE status NOT IN ('COMPLETED','FAILED','RELEASED');
+    `,
+  },
+
+  {
+    version: 8,
+    sql: `
+      CREATE TABLE security_audits (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+        status TEXT NOT NULL CHECK(status IN ('PASS','WARN','FAIL')),
+        checks_json TEXT NOT NULL CHECK(json_valid(checks_json)),
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX security_audits_project_idx ON security_audits(project_id, created_at);
+
+      CREATE TABLE qa_runs (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+        status TEXT NOT NULL CHECK(status IN ('RUNNING','PASS','FAIL','INTERRUPTED')),
+        base_head TEXT,
+        base_branch TEXT,
+        checks_json TEXT NOT NULL CHECK(json_valid(checks_json)),
+        error TEXT,
+        started_at TEXT NOT NULL,
+        finished_at TEXT
+      );
+      CREATE INDEX qa_runs_project_idx ON qa_runs(project_id, started_at);
+      CREATE UNIQUE INDEX qa_runs_active_project_idx ON qa_runs(project_id) WHERE status = 'RUNNING';
     `,
   },
 

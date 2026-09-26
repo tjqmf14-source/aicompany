@@ -127,9 +127,9 @@ function approve(ctx: ReturnType<typeof setup>, approvalId: string | null): void
   ctx.engine.repository.resolveApproval(approvalId, 'approved');
 }
 
-test('1. schema v7 includes Phase 6 capability state', () => {
+test('1. schema v8 includes Phase 6 capability state', () => {
   const ctx = setup();
-  try { assert.equal(schemaVersion(ctx.engine.database.db), 7); }
+  try { assert.equal(schemaVersion(ctx.engine.database.db), 8); }
   finally { ctx.clean(); }
 });
 
@@ -672,7 +672,7 @@ test('46. v5 database migrates forward preserving project data', () => {
     const db = new CoreDatabase(join(work.path, 'migration.sqlite'), false);
     assert.equal(migrate(db.db, 5), 5);
     db.db.prepare('INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?)').run('p-v5', 'saved', work.path, 'draft', 1, 't', 't');
-    assert.equal(migrate(db.db), 7);
+    assert.equal(migrate(db.db), 8);
     assert.equal((db.db.prepare('SELECT name FROM projects WHERE id = ?').get('p-v5') as { name: string }).name, 'saved');
     db.close();
   } finally { work.clean(); }

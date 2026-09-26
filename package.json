@@ -18,7 +18,7 @@
     "build": "npm run build:server && npm run build:web",
     "typecheck": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint src tests vite.config.ts",
-    "test": "npm run build:tests && node --test dist/test/tests/core.test.js dist/test/tests/git.test.js dist/test/tests/handoff.test.js dist/test/tests/codex.test.js dist/test/tests/server.test.js dist/test/tests/dashboard.test.js dist/test/tests/organization.test.js dist/test/tests/capability-manager.test.js dist/test/tests/parallel.test.js"
+    "test": "npm run build:tests && node --test dist/test/tests/core.test.js dist/test/tests/git.test.js dist/test/tests/handoff.test.js dist/test/tests/codex.test.js dist/test/tests/server.test.js dist/test/tests/dashboard.test.js dist/test/tests/organization.test.js dist/test/tests/capability-manager.test.js dist/test/tests/parallel.test.js dist/test/tests/assurance.test.js"
   },
   "dependencies": {
     "fastify": "5.12.5",

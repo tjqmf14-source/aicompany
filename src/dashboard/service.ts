@@ -7,6 +7,7 @@ import { resolveCodexJsPath } from '../codex/provider.js';
 import { OrganizationService } from '../organization/service.js';
 import { CapabilityManagerService } from '../capabilities/service.js';
 import { ParallelStore } from '../parallel/store.js';
+import { AssuranceStore } from '../assurance/store.js';
 import type { OrganizationAssignment, OrganizationState } from '../organization/types.js';
 import type {
   DashboardAction, DashboardActivity, DashboardCapability, DashboardCodex, DashboardCommandCenter,
@@ -135,6 +136,7 @@ export class DashboardService {
   readonly organization: OrganizationService;
   readonly capabilityManager: CapabilityManagerService;
   readonly parallel: ParallelStore;
+  readonly assurance: AssuranceStore;
 
   constructor(readonly engine: CoreEngine) {
     this.handoffs = new HandoffStore(engine.database);
@@ -142,6 +144,7 @@ export class DashboardService {
     this.organization = new OrganizationService(engine);
     this.capabilityManager = new CapabilityManagerService(engine);
     this.parallel = new ParallelStore(engine.database);
+    this.assurance = new AssuranceStore(engine.database);
   }
 
   private taskViews(
@@ -226,6 +229,7 @@ export class DashboardService {
     const codexRows = this.codex.list(projectId);
     const organization = this.organization.state(projectId);
     const parallelLanes = this.parallel.list(projectId);
+    const assurance = this.assurance.state(projectId);
     const tasks = this.taskViews(projectId, handoffs, codexRows, organization);
     const currentTask = this.currentTask(tasks);
     const checkpoints = this.engine.repository.listCheckpoints(projectId);
@@ -268,6 +272,9 @@ export class DashboardService {
       pendingReview: organization.pendingReview,
       qaStatus: organization.qaStatus,
       pdAcceptance: organization.pdAcceptance,
+      securityStatus: assurance.latestSecurity?.run.status ?? 'NOT RUN',
+      recoveryStatus: assurance.latestRecovery?.run.status ?? 'NOT RUN',
+      releaseQaStatus: assurance.latestQa?.run.status ?? 'NOT RUN',
     };
     return {
       project,
@@ -282,6 +289,7 @@ export class DashboardService {
       handoffs: [...handoffs].reverse(),
       organization,
       parallelLanes,
+      assurance,
       controls: this.controls(project, currentTask, approvals, handoffs, codexRows, git.dirty),
     };
   }

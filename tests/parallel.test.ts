@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import test from 'node:test';
 import { CoreDatabase } from '../src/core/database.js';
@@ -94,9 +94,9 @@ function approve(ctx: Setup, lane: ParallelLane): void {
   ctx.engine.repository.resolveApproval(lane.approvalId, 'approved');
 }
 
-test('1. schema v7 is current', () => {
+test('1. schema v8 is current', () => {
   const ctx = setup();
-  try { assert.equal(schemaVersion(ctx.engine.database.db), 7); }
+  try { assert.equal(schemaVersion(ctx.engine.database.db), 8); }
   finally { cleanup(ctx); }
 });
 
@@ -105,8 +105,8 @@ test('2. v6 migrates to v7', () => {
   try {
     const db = new CoreDatabase(join(work.path, 'migration.sqlite'), false);
     assert.equal(migrate(db.db, 6), 6);
-    assert.equal(migrate(db.db), 7);
-    assert.equal(schemaVersion(db.db), 7);
+    assert.equal(migrate(db.db), 8);
+    assert.equal(schemaVersion(db.db), 8);
     db.close();
   } finally { work.clean(); }
 });
@@ -524,5 +524,29 @@ test('32. parallel lane lifecycle writes durable events', () => {
     const types = ctx.engine.repository.listEvents(ctx.project.id).map(event => event.type);
     assert.ok(types.includes('parallel.lane_created'));
     assert.ok(types.includes('parallel.lane_status_changed'));
+  } finally { cleanup(ctx); }
+});
+
+
+test('33. managed integration ignores repository Git hooks', { skip: process.platform === 'win32' }, () => {
+  const ctx = setup();
+  try {
+    const preCommit = join(ctx.work.path, '.git', 'hooks', 'pre-commit');
+    const preMerge = join(ctx.work.path, '.git', 'hooks', 'pre-merge-commit');
+    writeFileSync(preCommit, '#!/bin/sh\nexit 97\n');
+    writeFileSync(preMerge, '#!/bin/sh\nexit 98\n');
+    chmodSync(preCommit, 0o755);
+    chmodSync(preMerge, 0o755);
+
+    let lane = ctx.parallel.create(ctx.task.id);
+    lane = ctx.parallel.start(lane.id);
+    commitWorker(lane);
+    lane = ctx.parallel.submit(lane.id);
+    lane = ctx.parallel.requestIntegration(lane.id);
+    approve(ctx, lane);
+    lane = ctx.parallel.integrate(lane.id);
+
+    assert.equal(lane.status, 'COMPLETED');
+    assert.ok(lane.integrationCommit);
   } finally { cleanup(ctx); }
 });

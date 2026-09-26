@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 
-export const LATEST_SCHEMA_VERSION = 7;
+export const LATEST_SCHEMA_VERSION = 8;
 
 const migrations = [
   {
@@ -325,6 +325,53 @@ const migrations = [
       CREATE INDEX parallel_lanes_status_idx ON parallel_lanes(project_id, status);
       CREATE UNIQUE INDEX parallel_lanes_active_task_idx ON parallel_lanes(task_id)
         WHERE status NOT IN ('COMPLETED','FAILED','RELEASED');
+    `,
+  },
+
+  {
+    version: 8,
+    sql: `
+      CREATE TABLE assurance_runs (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+        kind TEXT NOT NULL CHECK(kind IN ('SECURITY','RECOVERY','QA')),
+        status TEXT NOT NULL CHECK(status IN ('RUNNING','PASS','WARN','FAIL')),
+        base_head TEXT,
+        base_branch TEXT,
+        summary_json TEXT NOT NULL CHECK(json_valid(summary_json)),
+        created_at TEXT NOT NULL,
+        completed_at TEXT
+      );
+      CREATE INDEX assurance_runs_project_idx ON assurance_runs(project_id, created_at);
+      CREATE INDEX assurance_runs_kind_idx ON assurance_runs(project_id, kind, created_at);
+
+      CREATE TABLE assurance_checks (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL REFERENCES assurance_runs(id) ON DELETE CASCADE,
+        check_key TEXT NOT NULL,
+        category TEXT NOT NULL CHECK(category IN ('SECURITY','RECOVERY','QA')),
+        severity TEXT NOT NULL CHECK(severity IN ('INFO','WARN','ERROR')),
+        result TEXT NOT NULL CHECK(result IN ('PASS','WARN','FAIL','NOT_RUN')),
+        detail TEXT NOT NULL,
+        evidence_json TEXT NOT NULL CHECK(json_valid(evidence_json)),
+        checked_at TEXT NOT NULL
+      );
+      CREATE INDEX assurance_checks_run_idx ON assurance_checks(run_id, checked_at);
+
+      CREATE TABLE recovery_incidents (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+        source_kind TEXT NOT NULL CHECK(source_kind IN ('RUN','HANDOFF','CODEX','PARALLEL','CAPABILITY','GIT')),
+        source_id TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('OPEN','BLOCKED','RESOLVED')),
+        action TEXT NOT NULL,
+        evidence_json TEXT NOT NULL CHECK(json_valid(evidence_json)),
+        detected_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        resolved_at TEXT,
+        UNIQUE(project_id, source_kind, source_id)
+      );
+      CREATE INDEX recovery_incidents_project_idx ON recovery_incidents(project_id, status, updated_at);
     `,
   },
 

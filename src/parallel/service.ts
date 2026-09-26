@@ -10,13 +10,12 @@ import { ParallelStore } from './store.js';
 import type {
   ParallelLane, ParallelState, ParallelValidation, ParallelValidationName,
 } from './types.js';
+import { sanitizedProcessEnv } from '../security/environment.js';
+import { redactSensitive } from '../security/redaction.js';
 
 const validationNames: ParallelValidationName[] = ['typecheck', 'lint', 'test', 'build'];
 const now = (): string => new Date().toISOString();
-const redact = (value: string): string => value
-  .replace(/(?:sk|pk|rk|ghp|github_pat|xox[baprs])-?[A-Za-z0-9_-]{12,}/gi, '[REDACTED]')
-  .replace(/Bearer\s+[^\s]+/gi, 'Bearer [REDACTED]')
-  .slice(0, 20_000);
+const redact = (value: string): string => redactSensitive(value);
 
 function scopePath(value: string): string {
   const trimmed = value.trim().replaceAll('\\', '/');
@@ -54,7 +53,7 @@ function validate(root: string): ParallelValidation[] {
     const args = windows ? ['/d', '/s', '/c', `npm.cmd run ${name}`] : ['run', name];
     const result = spawnSync(executable, args, {
       cwd: root, encoding: 'utf8', windowsHide: true, timeout: 120_000,
-      maxBuffer: 5 * 1024 * 1024, env: { ...process.env, CI: '1', NO_COLOR: '1' },
+      maxBuffer: 5 * 1024 * 1024, env: sanitizedProcessEnv({ CI: '1', NO_COLOR: '1' }),
     });
     return {
       name,

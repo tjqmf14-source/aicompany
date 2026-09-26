@@ -118,7 +118,7 @@ export interface Capability {
 }
 
 export class CoreError extends Error {
-  constructor(public readonly code: 'NOT_FOUND' | 'INVALID_INPUT' | 'INVALID_TRANSITION' | 'DIRTY_WORKTREE' | 'NOT_GIT_REPOSITORY' | 'CONFLICT', message: string) {
+  constructor(public readonly code: 'NOT_FOUND' | 'INVALID_INPUT' | 'INVALID_TRANSITION' | 'DIRTY_WORKTREE' | 'NOT_GIT_REPOSITORY' | 'CONFLICT' | 'FORBIDDEN', message: string) {
     super(message);
     this.name = 'CoreError';
   }

@@ -20,10 +20,14 @@ function command(root: string, executable: string, args: string[], timeout = 120
     cwd: root, encoding: 'utf8', windowsHide: true, timeout,
     maxBuffer: 8 * 1024 * 1024, env: { ...process.env, CI: '1', NO_COLOR: '1' },
   });
+  const stdout = String(result.stdout ?? '');
+  const stderr = String(result.stderr ?? '');
   return {
     ok: result.status === 0 && !result.error,
     status: result.status,
-    output: redact(`${result.stdout ?? ''}\n${result.stderr ?? ''}${result.error ? `\n${result.error.message}` : ''}`),
+    stdout,
+    stderr,
+    output: redact(`${stdout}\n${stderr}${result.error ? `\n${result.error.message}` : ''}`),
   };
 }
 
@@ -34,7 +38,7 @@ function git(root: string, args: string[], timeout = 20_000) {
 function secretScan(root: string): SecurityCheck {
   const listed = git(root, ['ls-files', '-z']);
   if (!listed.ok) return { key: 'tracked_secret_scan', status: 'FAIL', summary: 'Tracked file list could not be read', evidence: listed.output };
-  const files = listed.output.split('\0').filter(Boolean).slice(0, MAX_SCAN_FILES);
+  const files = listed.stdout.split('\0').filter(Boolean).slice(0, MAX_SCAN_FILES);
   const sensitiveNames = files.filter(path => {
     const name = path.replaceAll('\\', '/').split('/').at(-1)?.toLowerCase() ?? '';
     return name === '.env' || (name.startsWith('.env.') && name !== '.env.example' && name !== '.env.sample');
@@ -115,7 +119,7 @@ export class SecurityService {
 
     const repository = git(project.rootPath, ['rev-parse', '--verify', 'HEAD']);
     checks.push(repository.ok
-      ? { key: 'git_head', status: 'PASS', summary: 'Git HEAD is readable', evidence: repository.output.trim().slice(0, 200) }
+      ? { key: 'git_head', status: 'PASS', summary: 'Git HEAD is readable', evidence: repository.stdout.trim().slice(0, 200) }
       : { key: 'git_head', status: 'FAIL', summary: 'Git HEAD cannot be verified', evidence: repository.output });
 
     const unresolvedMarkers = [
@@ -123,7 +127,7 @@ export class SecurityService {
     ].filter(([marker]) => git(project.rootPath, ['rev-parse', '-q', '--verify', marker]).ok).map(([, label]) => label);
     const gitDir = git(project.rootPath, ['rev-parse', '--git-dir']);
     if (gitDir.ok) {
-      const base = gitDir.output.trim();
+      const base = gitDir.stdout.trim();
       if (existsSync(join(project.rootPath, base, 'rebase-merge')) || existsSync(join(project.rootPath, base, 'rebase-apply'))) unresolvedMarkers.push('rebase');
     }
     checks.push(unresolvedMarkers.length
@@ -158,7 +162,7 @@ export class SecurityService {
     const npmArgs = (args: string[]) => windows ? ['/d', '/s', '/c', `npm.cmd ${args.join(' ')}`] : args;
 
     const specs: { name: QaCheck['name']; executable: string; args: string[]; timeout?: number }[] = [
-      { name: 'git_diff_check', executable: 'git', args: ['diff', '--check'], timeout: 30_000 },
+      { name: 'git_diff_check', executable: 'git', args: ['diff', '--check', 'HEAD', '--'], timeout: 30_000 },
       { name: 'typecheck', executable: npm, args: npmArgs(['run', 'typecheck']) },
       { name: 'lint', executable: npm, args: npmArgs(['run', 'lint']) },
       { name: 'test', executable: npm, args: npmArgs(['test']), timeout: 180_000 },
@@ -176,7 +180,10 @@ export class SecurityService {
         });
       }
       const gitAfter = this.engine.git(projectId).snapshot();
-      const sourceChanged = gitAfter.head !== snapshot.head || gitAfter.branch !== snapshot.branch || gitAfter.diff !== snapshot.diff;
+      const sourceChanged = gitAfter.head !== snapshot.head
+        || gitAfter.branch !== snapshot.branch
+        || gitAfter.diff !== snapshot.diff
+        || JSON.stringify(gitAfter.changes) !== JSON.stringify(snapshot.changes);
       if (sourceChanged) {
         checks.push({ name: 'git_diff_check', status: 'FAIL', exitCode: null, output: 'QA changed repository state from its starting snapshot' });
       }

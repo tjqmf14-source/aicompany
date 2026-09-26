@@ -6,7 +6,8 @@ const SECRET_PATTERNS: { name: string; pattern: RegExp }[] = [
 ];
 
 export function detectSecretKinds(value: string): string[] {
-  return SECRET_PATTERNS.filter(item => item.pattern.test(value)).map(item => item.name);
+  const candidate = value.replaceAll('[REDACTED]', '');
+  return SECRET_PATTERNS.filter(item => item.pattern.test(candidate)).map(item => item.name);
 }
 
 export function redactSensitive(value: string, max = 20_000): string {

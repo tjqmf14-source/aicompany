@@ -6,6 +6,7 @@ import type { CodexExecution } from '../codex/store.js';
 import type { OrganizationState } from '../organization/types.js';
 import type { CapabilityOperation } from '../capabilities/types.js';
 import type { ParallelLane } from '../parallel/types.js';
+import type { SecurityState } from '../security/types.js';
 
 export type DashboardActionState = 'AVAILABLE' | 'UNAVAILABLE' | 'NOT_IMPLEMENTED' | 'AUTH_REQUIRED' | 'BLOCKED';
 export type DashboardCapabilityStatus =
@@ -141,6 +142,7 @@ export interface DashboardRealtimeState {
   handoffs: HandoffSession[];
   organization: OrganizationState;
   parallelLanes: ParallelLane[];
+  security: SecurityState;
   controls: DashboardControls;
 }
 

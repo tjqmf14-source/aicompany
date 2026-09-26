@@ -6,6 +6,7 @@ import { registerDashboardRoutes } from './dashboard.js';
 import { registerOrganizationRoutes } from './organization.js';
 import { registerCapabilityRoutes } from './capabilities.js';
 import { registerParallelRoutes } from './parallel.js';
+import { registerSecurityRoutes } from './security.js';
 
 type Params = { id: string };
 type TaskParams = { id: string; taskId: string };
@@ -26,6 +27,19 @@ const optionalVersion = (value: unknown): number | undefined => {
 
 export function createApp(engine: CoreEngine): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: 1024 * 1024 });
+  app.addHook('onRequest', async (request, reply) => {
+    const host = request.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    if (host && host !== 'localhost' && host !== '127.0.0.1' && host !== '::1') {
+      return reply.code(403).send({ error: 'LOCAL_ONLY', message: 'AI Company API accepts loopback hosts only' });
+    }
+  });
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('Referrer-Policy', 'no-referrer');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('Cache-Control', 'no-store');
+    return payload;
+  });
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof CoreError) {
       const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'CONFLICT' || error.code === 'DIRTY_WORKTREE' || error.code === 'INVALID_TRANSITION' ? 409 : 400;
@@ -93,6 +107,7 @@ export function createApp(engine: CoreEngine): FastifyInstance {
   registerOrganizationRoutes(app, engine);
   registerCapabilityRoutes(app, engine);
   registerParallelRoutes(app, engine);
+  registerSecurityRoutes(app, engine);
   registerDashboardRoutes(app, engine);
   return app;
 }

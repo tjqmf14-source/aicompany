@@ -1,5 +1,46 @@
 # Changelog
 
+## 2026-09-26 — Phase 8 Security / Recovery / QA
+
+### Added
+
+- SQLite schema migration v8
+- durable Security Audit records
+- durable deterministic QA Run/check evidence
+- startup recovery of interrupted QA records
+- SQLite quick-check and foreign-key integrity checks
+- unfinished Git operation detection
+- dirty working-tree WARN state
+- bounded tracked secret/environment-file heuristic scan
+- Handoff / Codex / Parallel / QA recovery blocker aggregation
+- conservative Release Ready gate
+- six-command deterministic QA runner
+- repository mutation detection during QA
+- QA output redaction and size bounding
+- loopback Host restriction
+- security response headers
+- Security Fastify API
+- Dashboard Security Audit / Release Ready / Recovery blocker state
+- durable Security/QA Event records
+- 33 Phase 8 acceptance/security/recovery tests
+
+### QA
+
+- Phase 8: 33/33 PASS
+- Phase 1-7 regression: 144/144 PASS
+- total: 177/177 PASS
+- typecheck / lint / build / git diff --check PASS on functional Run #90
+- npm audit: 0 vulnerabilities
+
+### Not included
+
+- exhaustive secret or malware scanning
+- OS sandboxing
+- public-network API authentication/TLS
+- release code signing
+- Phase 9 Windows packaging
+- Final Release Audit
+
 ## 2026-09-26 — Phase 7 Parallel Agent / Git Worktree
 
 ### Added

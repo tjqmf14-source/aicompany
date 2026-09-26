@@ -7,6 +7,7 @@ import { resolveCodexJsPath } from '../codex/provider.js';
 import { OrganizationService } from '../organization/service.js';
 import { CapabilityManagerService } from '../capabilities/service.js';
 import { ParallelStore } from '../parallel/store.js';
+import { SecurityService } from '../security/service.js';
 import type { OrganizationAssignment, OrganizationState } from '../organization/types.js';
 import type {
   DashboardAction, DashboardActivity, DashboardCapability, DashboardCodex, DashboardCommandCenter,
@@ -135,6 +136,7 @@ export class DashboardService {
   readonly organization: OrganizationService;
   readonly capabilityManager: CapabilityManagerService;
   readonly parallel: ParallelStore;
+  readonly securityService: SecurityService;
 
   constructor(readonly engine: CoreEngine) {
     this.handoffs = new HandoffStore(engine.database);
@@ -142,6 +144,7 @@ export class DashboardService {
     this.organization = new OrganizationService(engine);
     this.capabilityManager = new CapabilityManagerService(engine);
     this.parallel = new ParallelStore(engine.database);
+    this.securityService = new SecurityService(engine);
   }
 
   private taskViews(
@@ -226,6 +229,7 @@ export class DashboardService {
     const codexRows = this.codex.list(projectId);
     const organization = this.organization.state(projectId);
     const parallelLanes = this.parallel.list(projectId);
+    const security = this.securityService.state(projectId);
     const tasks = this.taskViews(projectId, handoffs, codexRows, organization);
     const currentTask = this.currentTask(tasks);
     const checkpoints = this.engine.repository.listCheckpoints(projectId);
@@ -282,6 +286,7 @@ export class DashboardService {
       handoffs: [...handoffs].reverse(),
       organization,
       parallelLanes,
+      security,
       controls: this.controls(project, currentTask, approvals, handoffs, codexRows, git.dirty),
     };
   }

@@ -13,6 +13,7 @@
     "src/organization/**/*.ts",
     "src/capabilities/**/*.ts",
     "src/parallel/**/*.ts",
+    "src/security/**/*.ts",
     "src/server/**/*.ts"
   ]
 }

@@ -14,6 +14,7 @@
     "src/capabilities/**/*.ts",
     "src/parallel/**/*.ts",
     "src/security/**/*.ts",
+    "src/assurance/**/*.ts",
     "src/server/**/*.ts"
   ]
 }

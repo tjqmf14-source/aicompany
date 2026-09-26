@@ -33,6 +33,7 @@ function within(root: string, candidate: string): boolean {
 export class ParallelGit {
   readonly primary: GitManager;
   readonly worktreeRoot: string;
+  readonly hooksRoot: string;
 
   constructor(primaryPath: string) {
     this.primary = new GitManager(primaryPath);
@@ -40,6 +41,10 @@ export class ParallelGit {
     if (existsSync(desired) && lstatSync(desired).isSymbolicLink()) throw new CoreError('INVALID_INPUT', 'Parallel worktree root must not be a symlink');
     mkdirSync(desired, { recursive: true });
     this.worktreeRoot = realpathSync(desired);
+    const hooks = resolve(this.worktreeRoot, '.hooks-disabled');
+    if (existsSync(hooks) && lstatSync(hooks).isSymbolicLink()) throw new CoreError('INVALID_INPUT', 'Managed hooks directory must not be a symlink');
+    mkdirSync(hooks, { recursive: true });
+    this.hooksRoot = realpathSync(hooks);
   }
 
   pathFor(laneId: string): string {
@@ -83,6 +88,7 @@ export class ParallelGit {
     const result = run(this.primary.rootPath, [
       '-c', 'user.name=AI Company Bridge',
       '-c', 'user.email=ai-company@local.invalid',
+      '-c', `core.hooksPath=${this.hooksRoot}`,
       'merge', '--no-ff', '--no-commit', branchName,
     ], 60_000);
     return { ok: result.status === 0, detail: (result.stderr || result.stdout).trim().slice(0, 4000) };
@@ -118,6 +124,7 @@ export class ParallelGit {
     checked(this.primary.rootPath, [
       '-c', 'user.name=AI Company Bridge',
       '-c', 'user.email=ai-company@local.invalid',
+      '-c', `core.hooksPath=${this.hooksRoot}`,
       'commit', '-m', message,
     ], 60_000);
     return this.primary.head() ?? (() => { throw new CoreError('CONFLICT', 'Integration commit was not created'); })();

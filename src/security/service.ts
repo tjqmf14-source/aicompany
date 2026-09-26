@@ -1,7 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { CoreError } from '../core/domain.js';
 import { CoreEngine } from '../core/engine.js';
 import { SecurityStore } from './store.js';
 import type {

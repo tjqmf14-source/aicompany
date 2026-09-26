@@ -78,12 +78,12 @@ function secretScan(root: string): SecurityCheck {
 
 export class SecurityService {
   readonly store: SecurityStore;
-  readonly recoveredQaRuns: number;
 
   constructor(readonly engine: CoreEngine) {
     this.store = new SecurityStore(engine.database);
-    this.recoveredQaRuns = this.store.recoverRunningQa();
   }
+
+  recoverStartupQa(): number { return this.store.recoverRunningQa(); }
 
   recovery(projectId: string): RecoveryState {
     this.engine.repository.getProject(projectId);

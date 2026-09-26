@@ -6,6 +6,7 @@ import { registerDashboardRoutes } from './dashboard.js';
 import { registerOrganizationRoutes } from './organization.js';
 import { registerCapabilityRoutes } from './capabilities.js';
 import { registerParallelRoutes } from './parallel.js';
+import { registerHttpSecurity } from '../security/http.js';
 
 type Params = { id: string };
 type TaskParams = { id: string; taskId: string };
@@ -26,9 +27,10 @@ const optionalVersion = (value: unknown): number | undefined => {
 
 export function createApp(engine: CoreEngine): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: 1024 * 1024 });
+  registerHttpSecurity(app);
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof CoreError) {
-      const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'CONFLICT' || error.code === 'DIRTY_WORKTREE' || error.code === 'INVALID_TRANSITION' ? 409 : 400;
+      const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'FORBIDDEN' ? 403 : error.code === 'CONFLICT' || error.code === 'DIRTY_WORKTREE' || error.code === 'INVALID_TRANSITION' ? 409 : 400;
       void reply.code(status).send({ error: error.code, message: error.message });
       return;
     }

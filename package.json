@@ -18,7 +18,9 @@
     "build": "npm run build:server && npm run build:web",
     "typecheck": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint src tests vite.config.ts",
-    "test": "npm run build:tests && node scripts/test.mjs"
+    "test": "npm run build:tests && node scripts/test.mjs",
+    "package:windows": "npm run build && node scripts/package-windows.mjs",
+    "smoke:windows": "node scripts/smoke-windows.mjs"
   },
   "dependencies": {
     "fastify": "5.12.5",

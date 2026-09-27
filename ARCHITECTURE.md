@@ -164,13 +164,24 @@ Parallel state is available through `/api/parallel/*` and is included in Dashboa
 
 Phase 8 adds `src/security` and SQLite migration 8. The layer is conservative: no audit or QA evidence means NOT READY, WARN is not release-ready, and unresolved recovery-required state blocks release readiness.
 
-Security audits persist deterministic checks for SQLite health/foreign keys, Git HEAD and unfinished operation state, working-tree state, bounded tracked secret heuristics, and unresolved recovery blockers. Dirty source is WARN; hard integrity/secret/recovery failures are FAIL/BLOCKED. Secret evidence stores affected paths rather than credential contents.
+Security audits persist deterministic checks for SQLite health/foreign keys, Git HEAD and unfinished operation state, working-tree state, tracked path containment, bounded tracked secret heuristics, DB/filesystem/Git orchestration consistency, and unresolved recovery blockers. Tracked symlinks/junctions, canonical paths that escape the repository, unreadable checkpoint commits, mismatched lane worktrees, and stale lane Approval bindings fail the audit. Dirty source is WARN; hard integrity/secret/recovery failures are FAIL/BLOCKED. Secret evidence stores affected paths rather than credential contents, and an incomplete bounded scan is WARN rather than PASS.
 
 Recovery aggregation covers Handoff `recovery_required`, Codex `recovery_required`, Parallel `RECOVERY_REQUIRED`, and active QA runs. QA rows left RUNNING after process termination become INTERRUPTED exactly at server startup. Dashboard reads are side-effect free.
 
-The Phase 8 QA runner records `git diff --check HEAD --`, typecheck, lint, test, build, and npm audit. Later checks continue after an earlier failure where possible. Repository state is captured before and after validation; a validation process that changes HEAD/branch/diff/porcelain state causes QA failure. Persisted output is bounded and credential-like strings are redacted.
+The Phase 8 QA runner records `git diff --check HEAD --`, typecheck, lint, test, build, and npm audit. Later checks continue after an earlier failure where possible. Repository state is captured before and after validation; a validation process that changes HEAD/branch/diff/porcelain state causes QA failure. Test exit code 0 is insufficient: a complete `node:test` summary, at least one executed test, and zero failed/cancelled/skipped/todo tests are required. The same evidence rule protects Handoff patch validation and Parallel integration validation. Persisted output is bounded and centrally redacts token formats, named secret assignments, Authorization values, command arguments, and URL credentials.
+
+Approval-gated Skill installation, MCP verification, and Parallel integration re-bind the resolved Approval to the exact project/task/action/result state immediately before mutation. An approved but unrelated or stale Approval ID cannot authorize a different operation.
 
 Release readiness requires a PASS QA run followed by a PASS security audit and zero recovery blockers. This is an evidence gate, not a claim of complete system security.
+
+Readiness additionally requires the current clean branch/HEAD to match QA and audit
+evidence. QA checks and events are persisted incrementally; interrupted recovery
+preserves partial checks and conditional completion cannot overwrite interruption.
+Parallel validation is persisted before committing, and completed-merge recovery
+requires that validation plus exact parent identity. Rollback verifies stored backup
+hashes before writes. Transactional lane reservations and integration ownership
+checks prevent duplicate claims; one active server owner per database remains the
+operating assumption.
 
 The Fastify layer adds loopback Host validation in addition to the executable's existing `127.0.0.1` bind and emits `nosniff`, no-referrer, frame-deny and no-store response headers. Phase 8 remains a local-only application and does not add public-network authentication or TLS.
 

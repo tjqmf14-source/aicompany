@@ -1,7 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 import { CoreEngine } from '../core/engine.js';
+import { GitManager, isWithin } from '../core/git-manager.js';
+import { testEvidenceFailure } from '../core/qa-evidence.js';
+import { redactSensitive } from '../core/redaction.js';
+import { assertNoLinkedComponents } from '../core/path-safety.js';
 import { SecurityStore } from './store.js';
 import type {
   QaCheck, RecoveryState, SecurityAudit, SecurityCheck, SecurityState,
@@ -9,10 +13,6 @@ import type {
 
 const MAX_SCAN_FILES = 3000;
 const MAX_SCAN_BYTES = 1024 * 1024;
-const redact = (value: string): string => value
-  .replace(/(?:sk|pk|rk|ghp|github_pat|xox[baprs])[-_A-Za-z0-9]{12,}/gi, '[REDACTED]')
-  .replace(/Bearer\s+[^\s]+/gi, 'Bearer [REDACTED]')
-  .slice(0, 20_000);
 
 function command(root: string, executable: string, args: string[], timeout = 120_000) {
   const result = spawnSync(executable, args, {
@@ -26,7 +26,7 @@ function command(root: string, executable: string, args: string[], timeout = 120
     status: result.status,
     stdout,
     stderr,
-    output: redact(`${stdout}\n${stderr}${result.error ? `\n${result.error.message}` : ''}`),
+    output: redactSensitive(`${stdout}\n${stderr}${result.error ? `\n${result.error.message}` : ''}`, Number.MAX_SAFE_INTEGER).slice(-20_000),
   };
 }
 
@@ -34,10 +34,48 @@ function git(root: string, args: string[], timeout = 20_000) {
   return command(root, 'git', ['-c', 'core.quotepath=false', '-c', 'core.fsmonitor=false', ...args], timeout);
 }
 
-function secretScan(root: string): SecurityCheck {
+function trackedFiles(root: string): { files: string[]; error: string | null } {
   const listed = git(root, ['ls-files', '-z']);
-  if (!listed.ok) return { key: 'tracked_secret_scan', status: 'FAIL', summary: 'Tracked file list could not be read', evidence: listed.output };
-  const files = listed.stdout.split('\0').filter(Boolean).slice(0, MAX_SCAN_FILES);
+  if (!listed.ok) return { files: [], error: listed.output };
+  return { files: listed.stdout.split('\0').filter(Boolean), error: null };
+}
+
+function trackedPathSafety(root: string, files: string[]): SecurityCheck {
+  const unsafe: string[] = [];
+  for (const relativePath of files) {
+    if (unsafe.length >= 20) break;
+    const full = resolve(root, relativePath);
+    try {
+      assertNoLinkedComponents(root, full);
+      if (!isWithin(root, full)) {
+        unsafe.push(`${relativePath} (escapes repository)`);
+        continue;
+      }
+      const stat = lstatSync(full);
+      if (stat.isSymbolicLink()) {
+        unsafe.push(`${relativePath} (symlink or junction)`);
+        continue;
+      }
+      const canonical = realpathSync(full);
+      if (!isWithin(root, canonical)) unsafe.push(`${relativePath} (canonical path escapes repository)`);
+      else if (!stat.isFile()) unsafe.push(`${relativePath} (not a regular file)`);
+    } catch {
+      unsafe.push(`${relativePath} (missing or unreadable)`);
+    }
+  }
+  return unsafe.length
+    ? { key: 'tracked_path_safety', status: 'FAIL', summary: 'Unsafe tracked filesystem paths detected', evidence: unsafe.join(', ').slice(0, 4000) }
+    : { key: 'tracked_path_safety', status: 'PASS', summary: 'Tracked paths are regular files contained by the repository', evidence: `validated ${files.length} tracked paths` };
+}
+
+function secretScan(root: string, files: string[]): SecurityCheck {
+  if (files.length > MAX_SCAN_FILES) {
+    return {
+      key: 'tracked_secret_scan', status: 'WARN',
+      summary: 'Tracked secret scan did not cover every file',
+      evidence: `${files.length} tracked files exceeds the ${MAX_SCAN_FILES} file limit`,
+    };
+  }
   const sensitiveNames = files.filter(path => {
     const name = path.replaceAll('\\', '/').split('/').at(-1)?.toLowerCase() ?? '';
     return name === '.env' || (name.startsWith('.env.') && name !== '.env.example' && name !== '.env.sample');
@@ -58,21 +96,101 @@ function secretScan(root: string): SecurityCheck {
     /github_pat_[A-Za-z0-9_]{20,}/i,
     /ghp_[A-Za-z0-9]{20,}/,
   ];
+  const skipped: string[] = [];
   for (const relativePath of files) {
     if (findings.length >= 20) break;
-    const full = join(root, relativePath);
+    const full = resolve(root, relativePath);
     try {
-      const stat = statSync(full);
-      if (!stat.isFile() || stat.size > MAX_SCAN_BYTES) continue;
-      const buffer = readFileSync(full);
+      assertNoLinkedComponents(root, full);
+      const stat = lstatSync(full);
+      const canonical = realpathSync(full);
+      if (stat.isSymbolicLink() || !stat.isFile() || !isWithin(root, canonical)) continue;
+      if (stat.size > MAX_SCAN_BYTES) {
+        if (skipped.length < 20) skipped.push(relativePath);
+        continue;
+      }
+      const buffer = readFileSync(canonical);
       if (buffer.includes(0)) continue;
       const text = buffer.toString('utf8');
       if (patterns.some(pattern => pattern.test(text))) findings.push(relativePath);
-    } catch { /* unreadable files are covered by Git/state checks */ }
+    } catch {
+      if (skipped.length < 20) skipped.push(relativePath);
+    }
   }
-  return findings.length
-    ? { key: 'tracked_secret_scan', status: 'FAIL', summary: 'Potential secret material found in tracked files', evidence: findings.join(', ') }
-    : { key: 'tracked_secret_scan', status: 'PASS', summary: 'No known high-risk secret pattern found in scanned tracked files', evidence: `scanned ${files.length} tracked files` };
+  if (findings.length) return { key: 'tracked_secret_scan', status: 'FAIL', summary: 'Potential secret material found in tracked files', evidence: findings.join(', ') };
+  if (skipped.length) return {
+    key: 'tracked_secret_scan', status: 'WARN', summary: 'Tracked secret scan was incomplete',
+    evidence: `unreadable or over ${MAX_SCAN_BYTES} bytes: ${skipped.join(', ')}`.slice(0, 4000),
+  };
+  return { key: 'tracked_secret_scan', status: 'PASS', summary: 'No known high-risk secret pattern found in scanned tracked files', evidence: `scanned ${files.length} tracked files` };
+}
+
+function stateConsistency(engine: CoreEngine, projectId: string, root: string): SecurityCheck {
+  const problems: string[] = [];
+  const db = engine.database.db;
+  const record = (value: string) => { if (problems.length < 30) problems.push(value); };
+
+  try {
+    if (realpathSync(root) !== engine.git(projectId).rootPath) record('Project root no longer matches the canonical Git root');
+  } catch {
+    record('Project root or Git repository is unreadable');
+  }
+
+  const checkpoints = db.prepare('SELECT id, snapshot_json FROM checkpoints WHERE project_id = ?').all(projectId) as { id: string; snapshot_json: string }[];
+  for (const row of checkpoints) {
+    try {
+      const snapshot = JSON.parse(row.snapshot_json) as { rootPath?: unknown; head?: unknown };
+      if (snapshot.rootPath !== root) record(`Checkpoint ${row.id} references a different repository root`);
+      if (typeof snapshot.head === 'string' && snapshot.head && !git(root, ['cat-file', '-e', `${snapshot.head}^{commit}`]).ok) {
+        record(`Checkpoint ${row.id} references an unreadable Git commit`);
+      }
+    } catch {
+      record(`Checkpoint ${row.id} contains invalid evidence`);
+    }
+  }
+
+  const lanes = db.prepare(`SELECT id, task_id, status, branch_name, worktree_path, base_head, result_head,
+    approval_id FROM parallel_lanes WHERE project_id = ? AND status NOT IN ('FAILED','RELEASED')`).all(projectId) as {
+      id: string; task_id: string; status: string; branch_name: string; worktree_path: string;
+      base_head: string; result_head: string | null; approval_id: string | null;
+    }[];
+  const desiredWorktreeRoot = resolve(dirname(root), '.ai-company-worktrees', basename(root));
+  for (const lane of lanes) {
+    if (!git(root, ['cat-file', '-e', `${lane.base_head}^{commit}`]).ok) record(`Parallel lane ${lane.id} base commit is unreadable`);
+    if (lane.result_head && !git(root, ['cat-file', '-e', `${lane.result_head}^{commit}`]).ok) record(`Parallel lane ${lane.id} result commit is unreadable`);
+    if (lane.status !== 'RECOVERY_REQUIRED') {
+      try {
+        const stat = lstatSync(lane.worktree_path);
+        const canonicalRoot = realpathSync(desiredWorktreeRoot);
+        const canonicalLane = realpathSync(lane.worktree_path);
+        if (stat.isSymbolicLink() || !stat.isDirectory() || !isWithin(canonicalRoot, canonicalLane)) {
+          record(`Parallel lane ${lane.id} worktree path is unsafe`);
+        } else {
+          const worktree = new GitManager(canonicalLane).snapshot();
+          if (worktree.branch !== lane.branch_name) record(`Parallel lane ${lane.id} branch does not match durable state`);
+          if (['READY'].includes(lane.status) && worktree.head !== lane.base_head) record(`Parallel lane ${lane.id} HEAD does not match its base`);
+          if (['REVIEW','APPROVAL_PENDING','INTEGRATING','COMPLETED'].includes(lane.status) && worktree.head !== lane.result_head) {
+            record(`Parallel lane ${lane.id} HEAD does not match its submitted result`);
+          }
+        }
+      } catch {
+        record(`Parallel lane ${lane.id} worktree is missing or unreadable`);
+      }
+    }
+    if (lane.status === 'APPROVAL_PENDING') {
+      const approval = lane.approval_id
+        ? db.prepare('SELECT project_id, task_id, action FROM approvals WHERE id = ?').get(lane.approval_id) as { project_id: string; task_id: string | null; action: string } | undefined
+        : undefined;
+      const expected = `parallel.integrate:${lane.id}:${lane.result_head ?? ''}`;
+      if (!approval || approval.project_id !== projectId || approval.task_id !== lane.task_id || approval.action !== expected) {
+        record(`Parallel lane ${lane.id} approval is stale or bound to different state`);
+      }
+    }
+  }
+
+  return problems.length
+    ? { key: 'state_consistency', status: 'FAIL', summary: 'Database, filesystem and Git state are inconsistent', evidence: problems.join('; ').slice(0, 4000) }
+    : { key: 'state_consistency', status: 'PASS', summary: 'Database, filesystem and Git evidence are consistent', evidence: `${checkpoints.length} checkpoint(s), ${lanes.length} unreleased lane(s) checked` };
 }
 
 export class SecurityService {
@@ -127,8 +245,8 @@ export class SecurityService {
       git(project.rootPath, ['rev-parse', '-q', '--verify', marker]).ok ? [label] : []);
     const gitDir = git(project.rootPath, ['rev-parse', '--git-dir']);
     if (gitDir.ok) {
-      const base = gitDir.stdout.trim();
-      if (existsSync(join(project.rootPath, base, 'rebase-merge')) || existsSync(join(project.rootPath, base, 'rebase-apply'))) unresolvedMarkers.push('rebase');
+      const base = resolve(project.rootPath, gitDir.stdout.trim());
+      if (existsSync(join(base, 'rebase-merge')) || existsSync(join(base, 'rebase-apply'))) unresolvedMarkers.push('rebase');
     }
     checks.push(unresolvedMarkers.length
       ? { key: 'git_operation_state', status: 'FAIL', summary: 'Unfinished Git operation detected', evidence: unresolvedMarkers.join(', ') }
@@ -139,7 +257,16 @@ export class SecurityService {
       ? { key: 'working_tree', status: 'WARN', summary: 'Working tree contains uncommitted changes', evidence: snapshot.changes.map(item => `${item.code} ${item.path}`).join('\n').slice(0, 4000) }
       : { key: 'working_tree', status: 'PASS', summary: 'Working tree is clean', evidence: `${snapshot.branch ?? 'detached'} @ ${snapshot.head ?? 'no HEAD'}` });
 
-    checks.push(secretScan(project.rootPath));
+    const tracked = trackedFiles(project.rootPath);
+    if (tracked.error) {
+      checks.push({ key: 'tracked_path_safety', status: 'FAIL', summary: 'Tracked file list could not be read', evidence: tracked.error });
+      checks.push({ key: 'tracked_secret_scan', status: 'FAIL', summary: 'Tracked secret scan could not start', evidence: tracked.error });
+    } else {
+      checks.push(trackedPathSafety(project.rootPath, tracked.files));
+      checks.push(secretScan(project.rootPath, tracked.files));
+    }
+
+    checks.push(stateConsistency(this.engine, projectId, project.rootPath));
 
     const recovery = this.recovery(projectId);
     checks.push(recovery.blockers.length
@@ -172,12 +299,16 @@ export class SecurityService {
     try {
       for (const spec of specs) {
         const result = command(project.rootPath, spec.executable, spec.args, spec.timeout);
+        const evidenceFailure = spec.name === 'test' && result.ok
+          ? testEvidenceFailure(`${result.stdout}\n${result.stderr}`)
+          : null;
         checks.push({
           name: spec.name,
-          status: result.ok ? 'PASS' : 'FAIL',
+          status: result.ok && !evidenceFailure ? 'PASS' : 'FAIL',
           exitCode: result.status,
-          output: result.output,
+          output: evidenceFailure ? `${result.output}\nQA evidence failure: ${evidenceFailure}`.slice(0, 20_000) : result.output,
         });
+        this.store.saveProgress(qa.id, checks);
       }
       const gitAfter = this.engine.git(projectId).snapshot();
       const sourceChanged = gitAfter.head !== snapshot.head
@@ -190,7 +321,7 @@ export class SecurityService {
       const passed = checks.every(item => item.status === 'PASS');
       return this.store.finishQa(qa.id, passed ? 'PASS' : 'FAIL', checks, passed ? null : 'One or more QA checks failed');
     } catch (error) {
-      return this.store.finishQa(qa.id, 'FAIL', checks, error instanceof Error ? error.message : String(error));
+      return this.store.finishQa(qa.id, 'FAIL', checks, redactSensitive(error instanceof Error ? error.message : String(error)));
     }
   }
 
@@ -199,7 +330,14 @@ export class SecurityService {
     const latestAudit = this.store.latestAudit(projectId);
     const latestQa = this.store.latestQa(projectId);
     const recovery = this.recovery(projectId);
-    const releaseReady = latestAudit?.status === 'PASS'
+    let currentMatches = false;
+    try {
+      const current = this.engine.git(projectId).snapshot();
+      currentMatches = !current.dirty && !!current.head && current.head === latestQa?.baseHead
+        && current.branch === latestQa?.baseBranch
+        && latestAudit?.checks.find(check => check.key === 'git_head')?.evidence === current.head;
+    } catch { /* Missing repository state cannot be release ready. */ }
+    const releaseReady = currentMatches && latestAudit?.status === 'PASS'
       && latestQa?.status === 'PASS'
       && recovery.blockers.length === 0
       && latestAudit.createdAt >= latestQa.finishedAt!;

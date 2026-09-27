@@ -22,14 +22,23 @@
 - Security Fastify API
 - Dashboard Security Audit / Release Ready / Recovery blocker state
 - durable Security/QA Event records
-- 33 Phase 8 acceptance/security/recovery tests
+- tracked symlink/junction and canonical path escape audit
+- DB/filesystem/Git checkpoint and parallel-lane consistency audit
+- exact Approval binding for Skill install, MCP verification and Parallel integration
+- centralized output/error secret redaction
+- zero-test, skipped, todo and cancelled-test rejection in QA, Handoff and Parallel gates
+- stale release-readiness invalidation and durable partial QA/check evidence
+- checkpoint backup hash validation and evidence-gated interrupted merge recovery
+- transactional lane reservations and integration ownership checks
+- 43 Phase 8 acceptance/security/recovery tests plus 11 cross-module hardening regressions
 
 ### QA
 
-- Phase 8: 33/33 PASS
+- Phase 8 Security suite: 43/43 PASS
+- cross-module Phase 8 hardening regressions: 11/11 PASS
 - Phase 1-7 regression: 144/144 PASS
-- total: 177/177 PASS
-- typecheck / lint / build / git diff --check PASS on functional Run #90
+- total: 198/198 PASS locally before commit
+- typecheck / lint / build / git diff --check: PASS locally before commit
 - npm audit: 0 vulnerabilities
 
 ### Not included

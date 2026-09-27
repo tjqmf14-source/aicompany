@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { CoreDatabase } from '../core/database.js';
 import { CoreError } from '../core/domain.js';
+import { testEvidenceFailure } from '../core/qa-evidence.js';
+import { redactSensitive } from '../core/redaction.js';
 import type {
   QaCheck, QaRun, QaRunStatus, SecurityAudit, SecurityAuditStatus, SecurityCheck,
 } from './types.js';
@@ -94,16 +96,37 @@ export class SecurityStore {
     const current = this.getQa(runId);
     if (current.status !== 'RUNNING') throw new CoreError('INVALID_TRANSITION', 'QA run is not running');
     const finishedAt = now();
+    const names = ['git_diff_check', 'typecheck', 'lint', 'test', 'build', 'npm_audit'];
+    if (status === 'PASS' && (checks.length !== names.length
+      || names.some(name => checks.filter(check => check.name === name && check.status === 'PASS' && check.exitCode === 0).length !== 1)
+      || testEvidenceFailure(checks.find(check => check.name === 'test')?.output ?? ''))) {
+      status = 'FAIL';
+      error = 'Incomplete or invalid QA evidence cannot be PASS';
+    }
+    checks = checks.map(check => ({ ...check, output: redactSensitive(check.output) }));
+    error = error === null ? null : redactSensitive(error);
     this.database.transaction(() => {
-      this.db.prepare('UPDATE qa_runs SET status = ?, checks_json = ?, error = ?, finished_at = ? WHERE id = ?').run(
+      const updated = this.db.prepare("UPDATE qa_runs SET status = ?, checks_json = ?, error = ?, finished_at = ? WHERE id = ? AND status = 'RUNNING'").run(
         status, JSON.stringify(checks), error, finishedAt, runId,
       );
+      if (updated.changes !== 1) throw new CoreError('CONFLICT', 'QA state changed before completion');
       this.event(current.projectId, 'qa.run_finished', {
         qaRunId: runId, status,
         checks: checks.map(item => ({ name: item.name, status: item.status })),
       });
     });
     return this.getQa(runId);
+  }
+
+  saveProgress(runId: string, checks: QaCheck[]): void {
+    this.database.transaction(() => {
+      const current = this.getQa(runId);
+      const safeChecks = checks.map(check => ({ ...check, output: redactSensitive(check.output) }));
+      const updated = this.db.prepare("UPDATE qa_runs SET checks_json = ? WHERE id = ? AND status = 'RUNNING'")
+        .run(JSON.stringify(safeChecks), runId);
+      if (updated.changes !== 1) throw new CoreError('CONFLICT', 'QA state changed before progress was saved');
+      this.event(current.projectId, 'qa.check_completed', { qaRunId: runId, check: safeChecks.at(-1)?.name, status: safeChecks.at(-1)?.status });
+    });
   }
 
   getQa(runId: string): QaRun {
@@ -125,10 +148,10 @@ export class SecurityStore {
     const timestamp = now();
     for (const row of rows) {
       this.database.transaction(() => {
-        this.db.prepare("UPDATE qa_runs SET status = 'INTERRUPTED', error = ?, finished_at = ? WHERE id = ?").run(
+        const updated = this.db.prepare("UPDATE qa_runs SET status = 'INTERRUPTED', error = ?, finished_at = ? WHERE id = ? AND status = 'RUNNING'").run(
           'Process stopped before QA completed', timestamp, row.id,
         );
-        this.event(row.project_id, 'qa.run_interrupted', { qaRunId: row.id, reason: 'startup_recovery' });
+        if (updated.changes === 1) this.event(row.project_id, 'qa.run_interrupted', { qaRunId: row.id, reason: 'startup_recovery' });
       });
     }
     return rows.length;

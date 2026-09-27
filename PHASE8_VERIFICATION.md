@@ -1,5 +1,87 @@
 # Phase 8 Verification
 
+## Hardening completion — 2026-09-27
+
+Branch: `feature/phase8-hardening-completion`
+Integration baseline: `ae4ff84a012464e4c2befd239361879614e58ca2`
+Original Phase 7 baseline: `cffc33b683413dd241754c2f25d4ce228bcfd6fd`
+
+The remote already contained the original Phase 8 integration when this work began.
+This follow-up preserves that history and closes gaps found during source inspection.
+The original verification records below are historical, not evidence for this follow-up.
+
+### Implemented and verified
+
+- QA, Handoff and Parallel test gates require a complete node:test summary with a
+  positive test count, all tests passed, and no failure, cancellation, skip or todo.
+  Missing/partial evidence and exit-zero no-op test scripts cannot be PASS.
+- The top-level npm test runner enforces the same evidence rule and a minimum of
+  144 regression tests. Tests remain real Git/SQLite/HTTP fixtures; synthetic child
+  summaries are used only to exercise the evidence parser's rejection paths.
+- SecurityStore rejects empty/partial PASS submissions, persists each completed
+  check with its event, and retains partial evidence through interrupted recovery.
+  Conditional writes prevent stale completion from overwriting INTERRUPTED state.
+- Release readiness rechecks the current clean branch and HEAD against both the
+  QA base and audit evidence; changed source or a new commit invalidates readiness.
+- Central redaction covers named secret assignments, token formats, authorization
+  headers and URL credentials before bounded output is persisted.
+- Tracked paths and managed mutation destinations reject links/junctions in path
+  components. Secret scans do not follow escaped paths. Incomplete size/file-count
+  coverage is WARN and therefore not release-ready.
+- Security audits check checkpoint roots/commit availability, lane filesystem and
+  branch/result identity, and Approval bindings across DB, filesystem and Git.
+- Parallel/Skill/MCP approval execution verifies project/task/action bindings;
+  MCP execution also rejects a definition changed since its preview.
+- Parallel merge uses the approved exact result SHA. Successful validation is
+  persisted before commit; recovery recognizes a completed merge only with matching
+  parents, a clean repository, and complete successful saved validation.
+- Interrupted known merge recovery safely aborts and clears the old approval.
+  Unknown state remains blocked. Checkpoint backup hashes are verified before any
+  rollback writes; modified user files retain their existing protection.
+- Lane reservation checks run inside SQLite transactions, scopes compare without
+  case ambiguity, and duplicate/concurrent integration ownership is rejected.
+- Option/shell-like input cannot enter the managed exact-SHA merge boundary.
+  Existing process execution continues to use fixed argument arrays.
+
+### Local evidence before the implementation commit
+
+Windows; Node `24.19.0`; npm `11.17.0`; Git `2.55.0.windows.5`.
+
+| Check | Result |
+| --- | --- |
+| npm ci | PASS |
+| npm run typecheck | PASS |
+| npm run lint | PASS |
+| npm test | PASS — 198/198; fail/cancelled/skipped/todo all 0 |
+| npm run build | PASS — server and web artifacts generated |
+| npm audit --audit-level=high | PASS — 0 vulnerabilities |
+| git diff --check | PASS |
+
+Count: 144 Phase 1–7 regressions + 43 Security suite tests + 11 cross-module
+Phase 8 hardening tests = 198. No original test was removed or skipped.
+One intermediate lint run rejected a control-character regular expression; it was
+replaced with explicit character validation and the subsequent lint run passed.
+
+### Boundaries and recovery
+
+No dependencies, paid APIs/services, or new schema migrations were added.
+The application continues to assume one active server owner per database.
+This is not an OS sandbox for hostile npm scripts or a fully compromised local
+account, nor does it claim exhaustive secret scanning or immunity to an external
+process replacing files between filesystem syscalls.
+Windows installer/package signing remains Phase 9 and is NOT RUN here.
+Live paid-provider execution is NOT RUN under the ZERO-COST policy.
+
+Rollback is a normal Git revert of this follow-up's merge commit; no schema
+downgrade is required. Preserve the SQLite database and Git worktrees for manual
+recovery when an unknown or inconsistent state is reported.
+
+The implementation commit is created only after the local gate above passes and
+before browser verification. PR integration must match the verified feature HEAD;
+the final report identifies the exact merged main SHA and its successful CI run.
+
+## Original Phase 8 integration record
+
 Date: 2026-09-26
 Branch: `feature/phase8-security-recovery-qa`
 Baseline main: `cffc33b683413dd241754c2f25d4ce228bcfd6fd`

@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { CoreError } from '../core/domain.js';
+import { redactSensitive } from '../core/redaction.js';
+import { assertNoLinkedComponents } from '../core/path-safety.js';
 
 export function sha256Buffer(data: Buffer): string {
   return createHash('sha256').update(data).digest('hex');
@@ -32,7 +34,7 @@ export function assertContained(root: string, candidate: string, label: string):
   if (part === '..' || part.startsWith(`..${sep}`) || isAbsolute(part)) {
     throw new CoreError('INVALID_INPUT', `${label} escapes the allowed root`);
   }
-  return resolvedCandidate;
+  return assertNoLinkedComponents(resolvedRoot, resolvedCandidate);
 }
 
 export function safeSkillName(value: string): string {
@@ -44,8 +46,7 @@ export function safeSkillName(value: string): string {
 }
 
 export function redact(text: string, max = 4000): string {
-  return text.slice(0, max)
-    .replace(/(?:sk|pk|rk|ghp|github_pat|xox[baprs])-?[A-Za-z0-9_-]{12,}/gi, '[REDACTED]')
+  return redactSensitive(text, max)
     .replace(/[A-Za-z0-9_-]{40,}/g, '[REDACTED]');
 }
 

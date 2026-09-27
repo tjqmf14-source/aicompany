@@ -10,14 +10,21 @@ import { migrate, schemaVersion } from '../src/core/migrations.js';
 import { DashboardService } from '../src/dashboard/service.js';
 import { OrganizationService } from '../src/organization/service.js';
 import { ParallelService } from '../src/parallel/service.js';
+import { ParallelGit } from '../src/parallel/git.js';
 import type { ParallelLane } from '../src/parallel/types.js';
 import { createApp } from '../src/server/app.js';
 import { committedFixture } from './helpers.js';
 
 type Setup = ReturnType<typeof setup>;
 
-function validationPackage(fail: 'typecheck' | 'lint' | 'test' | 'build' | null = null) {
-  const script = (name: string) => `node -e "process.exit(${fail === name ? 7 : 0})"`;
+function validationPackage(fail: 'typecheck' | 'lint' | 'test' | 'build' | null = null, testMode: 'pass' | 'zero' | 'skip' = 'pass') {
+  const script = (name: string) => {
+    if (name !== 'test') return `node -e "process.exit(${fail === name ? 7 : 0})"`;
+    if (fail === 'test') return 'node -e "console.log(\'# tests 1\\n# pass 0\\n# fail 1\\n# cancelled 0\\n# skipped 0\\n# todo 0\'); process.exit(7)"';
+    if (testMode === 'zero') return 'node -e "console.log(\'# tests 0\\n# pass 0\\n# fail 0\\n# cancelled 0\\n# skipped 0\\n# todo 0\')"';
+    if (testMode === 'skip') return 'node -e "console.log(\'# tests 1\\n# pass 0\\n# fail 0\\n# cancelled 0\\n# skipped 1\\n# todo 0\')"';
+    return 'node -e "console.log(\'# tests 1\\n# pass 1\\n# fail 0\\n# cancelled 0\\n# skipped 0\\n# todo 0\')"';
+  };
   return JSON.stringify({
     name: 'parallel-fixture',
     version: '1.0.0',
@@ -31,9 +38,9 @@ function validationPackage(fail: 'typecheck' | 'lint' | 'test' | 'build' | null 
   }, null, 2);
 }
 
-function setup(options: { organization?: boolean; failValidation?: 'typecheck' | 'lint' | 'test' | 'build' | null } = {}) {
+function setup(options: { organization?: boolean; failValidation?: 'typecheck' | 'lint' | 'test' | 'build' | null; testMode?: 'pass' | 'zero' | 'skip' } = {}) {
   const work = committedFixture();
-  writeFileSync(join(work.path, 'package.json'), validationPackage(options.failValidation ?? null));
+  writeFileSync(join(work.path, 'package.json'), validationPackage(options.failValidation ?? null, options.testMode ?? 'pass'));
   writeFileSync(join(work.path, 'shared.txt'), 'base\n');
   work.commit();
   const dbPath = join(work.path, 'state.sqlite');
@@ -524,5 +531,124 @@ test('32. parallel lane lifecycle writes durable events', () => {
     const types = ctx.engine.repository.listEvents(ctx.project.id).map(event => event.type);
     assert.ok(types.includes('parallel.lane_created'));
     assert.ok(types.includes('parallel.lane_status_changed'));
+  } finally { cleanup(ctx); }
+});
+
+test('33. approved but unrelated Approval cannot be reused for integration', () => {
+  const ctx = setup();
+  try {
+    const before = git(ctx.work.path, 'rev-parse', 'HEAD');
+    let lane = ctx.parallel.create(ctx.task.id);
+    lane = ctx.parallel.start(lane.id);
+    commitWorker(lane);
+    lane = ctx.parallel.submit(lane.id);
+    lane = ctx.parallel.requestIntegration(lane.id);
+    const unrelated = ctx.engine.repository.requestApproval(ctx.project.id, 'parallel.integrate:other:state', ctx.task.id);
+    ctx.engine.repository.resolveApproval(unrelated.id, 'approved');
+    ctx.engine.database.db.prepare('UPDATE parallel_lanes SET approval_id = ? WHERE id = ?').run(unrelated.id, lane.id);
+    assert.throws(() => ctx.parallel.integrate(lane.id), (error: unknown) =>
+      error instanceof CoreError && error.code === 'CONFLICT' && /stale|different state/i.test(error.message));
+    assert.equal(git(ctx.work.path, 'rev-parse', 'HEAD'), before);
+  } finally { cleanup(ctx); }
+});
+
+test('34. zero-test integration evidence aborts before commit', () => {
+  const ctx = setup({ testMode: 'zero' });
+  try {
+    const before = git(ctx.work.path, 'rev-parse', 'HEAD');
+    let lane = ctx.parallel.create(ctx.task.id);
+    lane = ctx.parallel.start(lane.id);
+    commitWorker(lane);
+    lane = ctx.parallel.submit(lane.id);
+    lane = ctx.parallel.requestIntegration(lane.id);
+    approve(ctx, lane);
+    lane = ctx.parallel.integrate(lane.id);
+    assert.equal(lane.status, 'REVIEW');
+    assert.match(lane.validation.find(item => item.name === 'test')?.output ?? '', /zero tests/i);
+    assert.equal(git(ctx.work.path, 'rev-parse', 'HEAD'), before);
+  } finally { cleanup(ctx); }
+});
+
+test('35. skipped-test integration evidence aborts before commit', () => {
+  const ctx = setup({ testMode: 'skip' });
+  try {
+    let lane = ctx.parallel.create(ctx.task.id);
+    lane = ctx.parallel.start(lane.id);
+    commitWorker(lane);
+    lane = ctx.parallel.submit(lane.id);
+    lane = ctx.parallel.requestIntegration(lane.id);
+    approve(ctx, lane);
+    lane = ctx.parallel.integrate(lane.id);
+    assert.equal(lane.status, 'REVIEW');
+    assert.match(lane.validation.find(item => item.name === 'test')?.output ?? '', /skipped test/i);
+    assert.equal(ctx.engine.git(ctx.project.id).snapshot().dirty, false);
+  } finally { cleanup(ctx); }
+});
+
+test('36. interrupted known merge aborts safely after reopening the database', () => {
+  const ctx = setup();
+  try {
+    let lane = ctx.parallel.create(ctx.task.id);
+    ctx.parallel.start(lane.id);
+    commitWorker(lane);
+    ctx.parallel.submit(lane.id);
+    lane = ctx.parallel.requestIntegration(lane.id);
+    approve(ctx, lane);
+    ctx.parallel.store.update(lane.id, { status: 'INTEGRATING' });
+    assert.equal(new ParallelGit(ctx.work.path).mergeNoCommit(lane.resultHead!).ok, true);
+    ctx.engine.close();
+    ctx.engine = new CoreEngine(ctx.dbPath);
+    ctx.parallel = new ParallelService(ctx.engine);
+    assert.equal(ctx.parallel.recoverStartupStates(), 1);
+    const recovered = ctx.parallel.recover(lane.id);
+    assert.equal(recovered.status, 'REVIEW');
+    assert.equal(recovered.approvalId, null);
+    assert.equal(new ParallelGit(ctx.work.path).mergeHead(), null);
+    assert.equal(git(ctx.work.path, 'rev-parse', 'HEAD'), lane.targetHead);
+  } finally { cleanup(ctx); }
+});
+
+test('37. merge recovery requires persisted successful validation evidence', () => {
+  const ctx = setup();
+  try {
+    let lane = ctx.parallel.create(ctx.task.id);
+    ctx.parallel.start(lane.id);
+    commitWorker(lane);
+    ctx.parallel.submit(lane.id);
+    lane = ctx.parallel.requestIntegration(lane.id);
+    approve(ctx, lane);
+    lane = ctx.parallel.integrate(lane.id);
+    assert.equal(lane.status, 'COMPLETED');
+    ctx.parallel.store.update(lane.id, { status: 'RECOVERY_REQUIRED', validation: [] });
+    assert.throws(() => ctx.parallel.recover(lane.id), /QA evidence/i);
+    ctx.parallel.store.update(lane.id, { validation: lane.validation });
+    assert.equal(ctx.parallel.recover(lane.id).integrationCommit, lane.integrationCommit);
+  } finally { cleanup(ctx); }
+});
+
+test('38. duplicate integration claims and case-insensitive scope races are blocked', () => {
+  const ctx = setup();
+  try {
+    let lane = ctx.parallel.create(ctx.task.id, ['Src']);
+    const second = ctx.engine.repository.createTask(ctx.project.id, 'second', '');
+    ctx.engine.repository.setTaskStatus(second.id, 'ready');
+    assert.throws(() => ctx.parallel.create(second.id, ['src/file.ts']), /overlap|conflict/i);
+    ctx.parallel.start(lane.id);
+    commitWorker(lane, 'Src', 'result');
+    ctx.parallel.submit(lane.id);
+    lane = ctx.parallel.requestIntegration(lane.id);
+    ctx.parallel.store.update(lane.id, { status: 'INTEGRATING' });
+    assert.throws(() => ctx.parallel.store.update(lane.id, { status: 'INTEGRATING' }), /already claimed/i);
+  } finally { cleanup(ctx); }
+});
+
+test('39. option and shell injection cannot enter managed merge or branch deletion', () => {
+  const ctx = setup();
+  try {
+    const managed = new ParallelGit(ctx.work.path);
+    for (const input of ['--abort', 'HEAD; echo injected', 'HEAD & echo injected', '-c core.hooksPath=bad']) {
+      assert.throws(() => managed.mergeNoCommit(input), /exact commit SHA/i);
+    }
+    assert.throws(() => ctx.parallel.create(ctx.task.id, ['C:escape']), /repository-relative/i);
   } finally { cleanup(ctx); }
 });

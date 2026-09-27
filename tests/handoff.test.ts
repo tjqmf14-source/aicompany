@@ -23,12 +23,18 @@ const response = (overrides: Partial<HighResponse> = {}): HighResponse => ({
   remainingTasks: ['Review UI'], questions: [], riskNotes: [], ...overrides,
 });
 
-function setup(failAt: 'typecheck' | 'lint' | 'test' | 'build' | null = null) {
+function setup(failAt: 'typecheck' | 'lint' | 'test' | 'build' | null = null, testMode: 'pass' | 'zero' | 'skip' = 'pass') {
   const work = committedFixture();
   const packageJson = { name: 'handoff-fixture', version: '1.0.0', private: true, scripts: {
     typecheck: `node -e "process.exit(${failAt === 'typecheck' ? 1 : 0})"`,
     lint: `node -e "process.exit(${failAt === 'lint' ? 1 : 0})"`,
-    test: `node -e "process.exit(${failAt === 'test' ? 1 : 0})"`,
+    test: failAt === 'test'
+      ? 'node -e "console.log(\'# tests 1\\n# pass 0\\n# fail 1\\n# cancelled 0\\n# skipped 0\\n# todo 0\'); process.exit(1)"'
+      : testMode === 'zero'
+        ? 'node -e "console.log(\'# tests 0\\n# pass 0\\n# fail 0\\n# cancelled 0\\n# skipped 0\\n# todo 0\')"'
+        : testMode === 'skip'
+          ? 'node -e "console.log(\'# tests 1\\n# pass 0\\n# fail 0\\n# cancelled 0\\n# skipped 1\\n# todo 0\')"'
+          : 'node -e "console.log(\'# tests 1\\n# pass 1\\n# fail 0\\n# cancelled 0\\n# skipped 0\\n# todo 0\')"',
     build: `node -e "process.exit(${failAt === 'build' ? 1 : 0})"`,
   } };
   writeFileSync(join(work.path, 'package.json'), JSON.stringify(packageJson) + '\n');
@@ -236,4 +242,48 @@ test('restart restores in-flight handoff state and safe rollback refuses user ed
     assert.equal(readFileSync(join(work.path, 'README.md'), 'utf8'), 'original\n');
     reopened.close();
   } finally { work.clean(); }
+});
+
+test('zero-test evidence fails handoff validation and rolls back', () => {
+  const { work, engine, core, project } = setup(null, 'zero');
+  try {
+    const session = core.create(project.id, 'Reject zero tests');
+    core.importResponse(session.id, response({ commands: [], newFiles: [] }));
+    const result = core.apply(session.id);
+    assert.equal(result.status, 'failed');
+    assert.equal(result.verification?.results.find(item => item.command === 'test')?.status, 'FAIL');
+    assert.match(result.verification?.results.find(item => item.command === 'test')?.output ?? '', /zero tests/i);
+    assert.equal(result.verification?.rollback, 'PASS');
+    assert.equal(readFileSync(join(work.path, 'README.md'), 'utf8'), 'original\n');
+  } finally { engine.close(); work.clean(); }
+});
+
+test('skipped-test evidence fails handoff validation and rolls back', () => {
+  const { work, engine, core, project } = setup(null, 'skip');
+  try {
+    const session = core.create(project.id, 'Reject skipped tests');
+    core.importResponse(session.id, response({ commands: [], newFiles: [] }));
+    const result = core.apply(session.id);
+    assert.equal(result.status, 'failed');
+    assert.match(result.verification?.results.find(item => item.command === 'test')?.output ?? '', /skipped test/i);
+    assert.equal(result.verification?.rollback, 'PASS');
+  } finally { engine.close(); work.clean(); }
+});
+
+test('corrupt checkpoint backup is rejected before any rollback writes', () => {
+  const { work, engine, core, project } = setup();
+  try {
+    const session = core.create(project.id, 'Check backup integrity');
+    core.importResponse(session.id, response({ newFiles: [], codexTasks: [] }));
+    const saved = engine.checkpoint(project.id);
+    core.store.update(session.id, 'ready_to_apply', 'applying', { checkpoint: {
+      gitCheckpointId: saved.id, head: saved.snapshot.head, branch: saved.snapshot.branch,
+      scripts: {}, createdAt: new Date().toISOString(),
+      files: [{ path: 'README.md', existed: true, sha256: hash('original\n'),
+        contentBase64: Buffer.from('corrupt\n').toString('base64'), appliedSha256: hash('changed\n') }],
+    } });
+    writeFileSync(join(work.path, 'README.md'), 'changed\n');
+    assert.throws(() => core.rollback(session.id), /backup hash mismatch/i);
+    assert.equal(readFileSync(join(work.path, 'README.md'), 'utf8'), 'changed\n');
+  } finally { engine.close(); work.clean(); }
 });

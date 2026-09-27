@@ -4,6 +4,8 @@ import { dirname, join, resolve } from 'node:path';
 import { lstatSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { CoreError, nonEmpty } from '../core/domain.js';
 import { CoreEngine } from '../core/engine.js';
+import { testEvidenceFailure } from '../core/qa-evidence.js';
+import { redactSensitive } from '../core/redaction.js';
 import { createBundle } from './bundle.js';
 import { applyPatch, validatePatchSet, type PatchTarget } from './patch.js';
 import { validateRelativePath, validateResponseFile } from './paths.js';
@@ -13,7 +15,6 @@ import { HandoffStore, type CheckResult, type FileBackup, type HandoffCheckpoint
 
 const scripts = ['typecheck', 'lint', 'test', 'build'] as const;
 const sha = (data: Buffer): string => createHash('sha256').update(data).digest('hex');
-const redact = (value: string): string => value.replace(/sk-[A-Za-z0-9_-]{12,}/g, '[REDACTED]').replace(/Bearer\s+[^\s]+/gi, 'Bearer [REDACTED]').slice(0, 20_000);
 
 function gitCheck(root: string, args: string[]): number {
   const result = spawnSync('git', ['-c', 'core.fsmonitor=false', ...args], { cwd: root, windowsHide: true, timeout: 10_000, encoding: 'utf8' });
@@ -55,9 +56,12 @@ function runValidation(root: string, name: typeof scripts[number]): CheckResult 
     cwd: root, encoding: 'utf8', windowsHide: true, timeout: 120_000,
     maxBuffer: 5 * 1024 * 1024, env: { ...process.env, CI: '1', NO_COLOR: '1' },
   });
+  const rawOutput = `${result.stdout ?? ''}\n${result.stderr ?? ''}${result.error ? `\n${result.error.message}` : ''}`;
+  const commandPassed = result.status === 0 && !result.error;
+  const evidenceFailure = name === 'test' && commandPassed ? testEvidenceFailure(rawOutput) : null;
   return {
-    command: name, status: result.status === 0 && !result.error ? 'PASS' : 'FAIL', exitCode: result.status,
-    output: redact(`${result.stdout ?? ''}\n${result.stderr ?? ''}${result.error ? `\n${result.error.message}` : ''}`),
+    command: name, status: commandPassed && !evidenceFailure ? 'PASS' : 'FAIL', exitCode: result.status,
+    output: redactSensitive(evidenceFailure ? `${rawOutput}\nQA evidence failure: ${evidenceFailure}` : rawOutput, Number.MAX_SAFE_INTEGER).slice(-20_000),
   };
 }
 
@@ -215,7 +219,7 @@ export class HandoffCore {
       this.validateNoOtherChanges(this.store.get(handoffId));
       return this.store.finalizeVerified(handoffId, results);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = redactSensitive(error instanceof Error ? error.message : String(error), 4000);
       try { return this.rollback(handoffId, message); }
       catch (rollbackError) {
         const current = this.store.get(handoffId);
@@ -236,6 +240,9 @@ export class HandoffCore {
     const allowed = new Set(session.checkpoint.files.map(item => item.path.toLowerCase()));
     if (git.status().some(item => !allowed.has(item.path.toLowerCase()))) throw new CoreError('CONFLICT', 'Other workspace changes detected; rollback requires manual review');
     for (const file of session.checkpoint.files) {
+      if (file.existed && (file.contentBase64 === null || sha(Buffer.from(file.contentBase64, 'base64')) !== file.sha256)) {
+        throw new CoreError('CONFLICT', 'Checkpoint backup hash mismatch; rollback blocked before writes');
+      }
       const current = currentHash(root, file.path);
       if (current !== file.sha256 && (file.appliedSha256 === null || current !== file.appliedSha256)) {
         throw new CoreError('CONFLICT', `File changed after apply: ${file.path}`);

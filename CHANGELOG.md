@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-09-27 — Phase 9 Windows portable packaging
+
+- Unsigned per-user Windows x64 ZIP with Node/npm, production dependencies,
+  licenses, integrity manifest and exact source revision.
+- Built dashboard/API on one loopback endpoint; hidden server and double-click
+  Start/Stop launchers, including Unicode-path handling for PowerShell 5.1.
+- Separate retained data, crash-released single-instance ownership, authenticated
+  local shutdown and active-work stop protection. No application schema change.
+- Thirteen packaging regressions plus extracted-ZIP lifecycle smoke.
+- Windows/Linux CI and verified Windows artifacts. No paid service, installer,
+  registry modification, auto-update or signed-publisher claim.
+
 ## 2026-09-26 — Phase 8 Security / Recovery / QA
 
 ### Added

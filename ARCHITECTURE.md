@@ -186,3 +186,32 @@ operating assumption.
 The Fastify layer adds loopback Host validation in addition to the executable's existing `127.0.0.1` bind and emits `nosniff`, no-referrer, frame-deny and no-store response headers. Phase 8 remains a local-only application and does not add public-network authentication or TLS.
 
 Security endpoints live under `/api/security/*`. Dashboard aggregate state includes Security state, and COMMAND CENTER exposes Security Audit, Release Ready and Recovery blocker indicators.
+
+## Phase 9 extension — Windows portable distribution
+
+The portable Windows x64 ZIP includes built server/web files, locked production
+dependencies, Node/npm and their licenses, a SHA-256 inventory and Start/Stop
+launchers. It does not install a service, registry entry, updater or paid provider.
+Git remains an explicit prerequisite and Codex remains optional. This unsigned
+distribution does not claim SmartScreen reputation or publisher authentication.
+
+`desktop.ts` starts the existing API plus the built dashboard on one ephemeral
+loopback port. Only `/` and build assets are statically public. Linked paths and
+non-allowlisted files are not served. Local status/stop requests require a random
+per-start token and instance identity; neither is printed in normal output.
+An active Core Run/QA run blocks a normal Stop request.
+
+State defaults to `%LOCALAPPDATA%/AICompanyBridge`, outside the package. A separate
+SQLite `BEGIN EXCLUSIVE` transaction is held for the runtime lifetime, before the
+Core DB is opened. It prevents a second package instance from triggering startup
+recovery against the first instance. OS process termination releases the lock;
+lock files are not deleted. The existing Phase 8 recovery runs on the next start.
+See [Node 24 SQLite](https://nodejs.org/download/release/v24.19.0/docs/api/sqlite.html)
+and [SQLite transactions](https://www.sqlite.org/lang_transaction.html).
+
+The legacy developer entry point is unchanged. Do not point a development server
+at the portable data directory; it does not participate in the new instance lock.
+Network/shared/cloud-synced data directories are not supported. Hash verification
+detects damage, not a malicious replacement of both manifest and executable.
+Upgrade/rollback is side-by-side, after Stop and backup of the entire closed data
+directory. Phase 9 changes no application schema. See `packaging/WINDOWS_README.md`.

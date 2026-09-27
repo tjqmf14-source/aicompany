@@ -14,18 +14,23 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '24'
+          node-version: '24.19.0'
           cache: npm
       - run: npm ci
       - name: Check Git whitespace
+        shell: bash
         run: |
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             git diff --check "${{ github.event.pull_request.base.sha }}...HEAD"
@@ -37,3 +42,19 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm audit --audit-level=high
+      - name: Package Windows portable
+        if: runner.os == 'Windows'
+        run: npm run package:windows
+      - name: Smoke extracted Windows package
+        if: runner.os == 'Windows'
+        run: npm run smoke:windows
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: runner.os == 'Windows' && success()
+        with:
+          name: windows-portable-${{ github.sha }}
+          path: |
+            dist/releases/*.zip
+            dist/releases/*.sha256
+            dist/releases/windows-smoke.json
+          if-no-files-found: error
+          retention-days: 14

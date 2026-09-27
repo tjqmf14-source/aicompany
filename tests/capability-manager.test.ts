@@ -677,3 +677,16 @@ test('46. v5 database migrates forward preserving project data', () => {
     db.close();
   } finally { work.clean(); }
 });
+
+test('47. approved but unrelated Approval cannot be reused for Skill installation', () => {
+  const ctx = setup();
+  try {
+    const operation = ctx.manager.requestSkillInstall(ctx.project.id, createSkill(sourceRoot(ctx), 'bound-approval-skill'));
+    const unrelated = ctx.engine.repository.requestApproval(ctx.project.id, 'capability.install:other:state');
+    ctx.engine.repository.resolveApproval(unrelated.id, 'approved');
+    ctx.engine.database.db.prepare('UPDATE capability_operations SET approval_id = ? WHERE id = ?').run(unrelated.id, operation.id);
+    assert.throws(() => ctx.manager.executeInstall(operation.id), (error: unknown) =>
+      error instanceof CoreError && error.code === 'CONFLICT' && /stale|different state/i.test(error.message));
+    assert.equal(existsSync(join(ctx.skillsRoot, 'bound-approval-skill')), false);
+  } finally { ctx.clean(); }
+});

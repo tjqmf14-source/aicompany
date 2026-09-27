@@ -3,6 +3,7 @@ import { existsSync, lstatSync, mkdirSync, realpathSync } from 'node:fs';
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { CoreError } from '../core/domain.js';
 import { GitManager } from '../core/git-manager.js';
+import { assertNoLinkedComponents } from '../core/path-safety.js';
 
 interface GitResult {
   status: number;
@@ -37,6 +38,7 @@ export class ParallelGit {
   constructor(primaryPath: string) {
     this.primary = new GitManager(primaryPath);
     const desired = resolve(dirname(this.primary.rootPath), '.ai-company-worktrees', basename(this.primary.rootPath));
+    assertNoLinkedComponents(dirname(this.primary.rootPath), desired);
     if (existsSync(desired) && lstatSync(desired).isSymbolicLink()) throw new CoreError('INVALID_INPUT', 'Parallel worktree root must not be a symlink');
     mkdirSync(desired, { recursive: true });
     this.worktreeRoot = realpathSync(desired);
@@ -52,12 +54,14 @@ export class ParallelGit {
   create(branchName: string, worktreePath: string, baseHead: string): void {
     if (!/^ai-company\/parallel\/[a-f0-9-]+$/i.test(branchName)) throw new CoreError('INVALID_INPUT', 'Invalid managed branch');
     const target = resolve(worktreePath);
+    assertNoLinkedComponents(this.worktreeRoot, target);
     if (!within(this.worktreeRoot, target) || existsSync(target)) throw new CoreError('CONFLICT', 'Managed worktree destination is unavailable');
     checked(this.primary.rootPath, ['rev-parse', '--verify', `${baseHead}^{commit}`]);
     checked(this.primary.rootPath, ['worktree', 'add', '-b', branchName, target, baseHead], 60_000);
   }
 
   snapshot(worktreePath: string) {
+    assertNoLinkedComponents(this.worktreeRoot, worktreePath);
     const target = realpathSync(resolve(worktreePath));
     if (!within(this.worktreeRoot, target)) throw new CoreError('INVALID_INPUT', 'Worktree is outside managed root');
     return new GitManager(target).snapshot();
@@ -80,6 +84,7 @@ export class ParallelGit {
   }
 
   mergeNoCommit(branchName: string): { ok: boolean; detail: string } {
+    if (!/^[a-f0-9]{40,64}$/i.test(branchName)) throw new CoreError('INVALID_INPUT', 'Merge requires an exact commit SHA');
     const result = run(this.primary.rootPath, [
       '-c', 'user.name=AI Company Bridge',
       '-c', 'user.email=ai-company@local.invalid',
@@ -124,6 +129,8 @@ export class ParallelGit {
   }
 
   remove(worktreePath: string, branchName: string): void {
+    assertNoLinkedComponents(this.worktreeRoot, worktreePath);
+    if (!/^ai-company\/parallel\/[a-f0-9-]+$/i.test(branchName)) throw new CoreError('INVALID_INPUT', 'Invalid managed branch');
     const target = realpathSync(resolve(worktreePath));
     if (!within(this.worktreeRoot, target)) throw new CoreError('INVALID_INPUT', 'Worktree is outside managed root');
     new GitManager(target).requireClean();

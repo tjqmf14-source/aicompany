@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { CoreDatabase } from '../src/core/database.js';
 import { CoreEngine } from '../src/core/engine.js';
+import { testEvidenceFailure } from '../src/core/qa-evidence.js';
 import { migrate, schemaVersion } from '../src/core/migrations.js';
 import { DashboardService } from '../src/dashboard/service.js';
 import { SecurityService } from '../src/security/service.js';
@@ -11,9 +13,16 @@ import { SecurityStore } from '../src/security/store.js';
 import { createApp } from '../src/server/app.js';
 import { committedFixture } from './helpers.js';
 
-function qaFiles(path: string, fail: 'typecheck' | 'lint' | 'test' | 'build' | null = null, mutate = false): void {
+function qaFiles(path: string, fail: 'typecheck' | 'lint' | 'test' | 'build' | null = null, mutate = false, testMode: 'pass' | 'zero' | 'skip' | 'secret' = 'pass'): void {
   const script = (name: string) => {
     if (mutate && name === 'test') return `node -e "require('fs').writeFileSync('README.md','qa-mutated\\n')"`;
+    if (name === 'test') {
+      if (fail === 'test') return 'node -e "console.log(\'# tests 1\\n# pass 0\\n# fail 1\\n# cancelled 0\\n# skipped 0\\n# todo 0\'); process.exit(7)"';
+      if (testMode === 'zero') return 'node -e "console.log(\'# tests 0\\n# pass 0\\n# fail 0\\n# cancelled 0\\n# skipped 0\\n# todo 0\')"';
+      if (testMode === 'skip') return 'node -e "console.log(\'# tests 1\\n# pass 0\\n# fail 0\\n# cancelled 0\\n# skipped 1\\n# todo 0\')"';
+      const prefix = testMode === 'secret' ? 'API_TOKEN=super-secret-value-123456789 Bearer bearer-secret-value-123456789 https://user:password123@example.invalid\\n' : '';
+      return `node -e "console.log('${prefix}# tests 1\\n# pass 1\\n# fail 0\\n# cancelled 0\\n# skipped 0\\n# todo 0')"`;
+    }
     return `node -e "process.exit(${fail === name ? 7 : 0})"`;
   };
   writeFileSync(join(path, 'package.json'), JSON.stringify({
@@ -34,10 +43,10 @@ function qaFiles(path: string, fail: 'typecheck' | 'lint' | 'test' | 'build' | n
   }, null, 2));
 }
 
-function setup(options: { qa?: boolean; fail?: 'typecheck' | 'lint' | 'test' | 'build' | null; mutate?: boolean } = {}) {
+function setup(options: { qa?: boolean; fail?: 'typecheck' | 'lint' | 'test' | 'build' | null; mutate?: boolean; testMode?: 'pass' | 'zero' | 'skip' | 'secret' } = {}) {
   const work = committedFixture();
   if (options.qa) {
-    qaFiles(work.path, options.fail ?? null, options.mutate ?? false);
+    qaFiles(work.path, options.fail ?? null, options.mutate ?? false, options.testMode ?? 'pass');
     work.commit();
   }
   const dbPath = join(work.path, 'state.sqlite');
@@ -468,4 +477,127 @@ test('33. Dashboard source renders Phase 8 security release indicators', () => {
   assert.match(source, /Release Ready/);
   assert.match(source, /Recovery blockers/);
   assert.match(source, /state\.security\.releaseReady/);
+});
+
+test('34. zero-test QA evidence is FAIL even when the command exits zero', () => {
+  const ctx = setup({ qa: true, testMode: 'zero' });
+  try {
+    const run = ctx.security.runQa(ctx.project.id);
+    const check = run.checks.find(item => item.name === 'test');
+    assert.equal(run.status, 'FAIL');
+    assert.equal(check?.status, 'FAIL');
+    assert.match(check?.output ?? '', /zero tests/i);
+  } finally { clean(ctx); }
+});
+
+test('35. skipped-test QA evidence is FAIL even when the command exits zero', () => {
+  const ctx = setup({ qa: true, testMode: 'skip' });
+  try {
+    const run = ctx.security.runQa(ctx.project.id);
+    const check = run.checks.find(item => item.name === 'test');
+    assert.equal(run.status, 'FAIL');
+    assert.equal(check?.status, 'FAIL');
+    assert.match(check?.output ?? '', /skipped test/i);
+  } finally { clean(ctx); }
+});
+
+test('36. QA output redacts named secrets, authorization values and URL credentials', () => {
+  const ctx = setup({ qa: true, testMode: 'secret' });
+  try {
+    const run = ctx.security.runQa(ctx.project.id);
+    const output = run.checks.find(item => item.name === 'test')?.output ?? '';
+    assert.equal(run.status, 'PASS');
+    assert.match(output, /\[REDACTED\]/);
+    assert.doesNotMatch(output, /super-secret-value|bearer-secret-value|password123/);
+  } finally { clean(ctx); }
+});
+
+test('37. tracked symlink or junction cannot escape the repository audit boundary', () => {
+  const ctx = setup();
+  const outside = mkdtempSync(join(tmpdir(), 'phase8-path-'));
+  const link = join(ctx.work.path, 'outside-link');
+  try {
+    writeFileSync(join(outside, 'outside.txt'), 'outside\n');
+    symlinkSync(outside, link, process.platform === 'win32' ? 'junction' : 'dir');
+    ctx.work.commit();
+    const audit = ctx.security.audit(ctx.project.id);
+    const check = audit.checks.find(item => item.key === 'tracked_path_safety');
+    assert.equal(audit.status, 'FAIL');
+    assert.equal(check?.status, 'FAIL');
+    assert.match(check?.evidence ?? '', /outside-link/);
+  } finally {
+    rmSync(link, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+    clean(ctx);
+  }
+});
+
+test('38. checkpoint database evidence must match the canonical Git repository', () => {
+  const ctx = setup();
+  try {
+    const checkpoint = ctx.engine.checkpoint(ctx.project.id, 'consistency test');
+    ctx.engine.database.db.prepare('UPDATE checkpoints SET snapshot_json = ? WHERE id = ?').run(
+      JSON.stringify({ ...checkpoint.snapshot, rootPath: join(ctx.work.path, '..', 'different') }),
+      checkpoint.id,
+    );
+    const audit = ctx.security.audit(ctx.project.id);
+    const check = audit.checks.find(item => item.key === 'state_consistency');
+    assert.equal(audit.status, 'FAIL');
+    assert.equal(check?.status, 'FAIL');
+    assert.match(check?.evidence ?? '', /different repository root/i);
+  } finally { clean(ctx); }
+});
+
+test('39. node:test spec-reporter summary is accepted as complete evidence', () => {
+  assert.equal(testEvidenceFailure('ℹ tests 3\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\n'), null);
+});
+
+test('40. QA and audit PASS become stale after source changes or a new commit', () => {
+  const ctx = setup({ qa: true });
+  try {
+    ctx.security.runQa(ctx.project.id);
+    ctx.security.audit(ctx.project.id);
+    assert.equal(ctx.security.state(ctx.project.id).releaseReady, true);
+    writeFileSync(join(ctx.work.path, 'README.md'), 'new source\n');
+    assert.equal(ctx.security.state(ctx.project.id).releaseReady, false);
+    ctx.work.commit();
+    ctx.security.audit(ctx.project.id);
+    assert.equal(ctx.security.state(ctx.project.id).releaseReady, false);
+  } finally { clean(ctx); }
+});
+
+test('41. empty and partial QA checks cannot be persisted as PASS', () => {
+  const ctx = setup();
+  try {
+    const run = ctx.security.store.startQa(ctx.project.id, null, null);
+    assert.equal(ctx.security.store.finishQa(run.id, 'PASS', [], null).status, 'FAIL');
+    const partial = ctx.security.store.startQa(ctx.project.id, null, null);
+    assert.equal(ctx.security.store.finishQa(partial.id, 'PASS', [{
+      name: 'test', status: 'PASS', exitCode: 0, output: '',
+    }], null).status, 'FAIL');
+  } finally { clean(ctx); }
+});
+
+test('42. interrupted QA retains partial evidence and cannot finish through a stale writer', () => {
+  const ctx = setup();
+  try {
+    const run = ctx.security.store.startQa(ctx.project.id, null, null);
+    ctx.security.store.saveProgress(run.id, [{ name: 'lint', status: 'PASS', exitCode: 0, output: 'password=hidden-value' }]);
+    ctx.security.recoverStartupQa();
+    const recovered = ctx.security.store.getQa(run.id);
+    assert.equal(recovered.status, 'INTERRUPTED');
+    assert.equal(recovered.checks.length, 1);
+    assert.doesNotMatch(recovered.checks[0]!.output, /hidden-value/);
+    assert.throws(() => ctx.security.store.finishQa(run.id, 'PASS', [], null));
+    assert.equal(ctx.security.recoverStartupQa(), 0);
+  } finally { clean(ctx); }
+});
+
+test('43. missing, cancelled, todo and incomplete test summaries fail closed', () => {
+  assert.ok(testEvidenceFailure('process exited successfully'));
+  for (const summary of [
+    '# tests 1\n# pass 0\n# fail 0\n# cancelled 1\n# skipped 0\n# todo 0',
+    '# tests 1\n# pass 0\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 1',
+    '# tests 2\n# pass 1\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0',
+  ]) assert.ok(testEvidenceFailure(summary));
 });

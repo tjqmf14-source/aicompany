@@ -4,6 +4,8 @@ import { isAbsolute, posix } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { CoreError } from '../core/domain.js';
 import { CoreEngine } from '../core/engine.js';
+import { testEvidenceFailure } from '../core/qa-evidence.js';
+import { redactSensitive } from '../core/redaction.js';
 import { OrganizationStore } from '../organization/store.js';
 import { ParallelGit } from './git.js';
 import { ParallelStore } from './store.js';
@@ -13,14 +15,10 @@ import type {
 
 const validationNames: ParallelValidationName[] = ['typecheck', 'lint', 'test', 'build'];
 const now = (): string => new Date().toISOString();
-const redact = (value: string): string => value
-  .replace(/(?:sk|pk|rk|ghp|github_pat|xox[baprs])-?[A-Za-z0-9_-]{12,}/gi, '[REDACTED]')
-  .replace(/Bearer\s+[^\s]+/gi, 'Bearer [REDACTED]')
-  .slice(0, 20_000);
 
 function scopePath(value: string): string {
   const trimmed = value.trim().replaceAll('\\', '/');
-  if (!trimmed || trimmed.includes('\0') || isAbsolute(trimmed)) throw new CoreError('INVALID_INPUT', 'Scope path must be repository-relative');
+  if (!trimmed || trimmed.includes(':') || [...trimmed].some(char => char.charCodeAt(0) < 32) || isAbsolute(trimmed)) throw new CoreError('INVALID_INPUT', 'Scope path must be repository-relative');
   const normalized = posix.normalize(trimmed).replace(/^\.\//, '').replace(/\/$/, '');
   if (!normalized || normalized === '.' || normalized === '..' || normalized.startsWith('../')) {
     throw new CoreError('INVALID_INPUT', 'Scope path escapes the repository');
@@ -29,6 +27,8 @@ function scopePath(value: string): string {
 }
 
 function scopesOverlap(left: string, right: string): boolean {
+  left = left.toLowerCase();
+  right = right.toLowerCase();
   return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
 }
 
@@ -56,11 +56,14 @@ function validate(root: string): ParallelValidation[] {
       cwd: root, encoding: 'utf8', windowsHide: true, timeout: 120_000,
       maxBuffer: 5 * 1024 * 1024, env: { ...process.env, CI: '1', NO_COLOR: '1' },
     });
+    const rawOutput = `${result.stdout ?? ''}\n${result.stderr ?? ''}${result.error ? `\n${result.error.message}` : ''}`;
+    const commandPassed = result.status === 0 && !result.error;
+    const evidenceFailure = name === 'test' && commandPassed ? testEvidenceFailure(rawOutput) : null;
     return {
       name,
-      status: result.status === 0 && !result.error ? 'PASS' as const : 'FAIL' as const,
+      status: commandPassed && !evidenceFailure ? 'PASS' as const : 'FAIL' as const,
       exitCode: result.status,
-      output: redact(`${result.stdout ?? ''}\n${result.stderr ?? ''}${result.error ? `\n${result.error.message}` : ''}`),
+      output: redactSensitive(evidenceFailure ? `${rawOutput}\nQA evidence failure: ${evidenceFailure}` : rawOutput, Number.MAX_SAFE_INTEGER).slice(-20_000),
     };
   });
 }
@@ -134,7 +137,7 @@ export class ParallelService {
       lane = this.store.update(lane.id, { status: 'READY', error: null });
       return lane;
     } catch (error) {
-      this.store.update(lane.id, { status: 'FAILED', error: error instanceof Error ? error.message : String(error) });
+      this.store.update(lane.id, { status: 'FAILED', error: redactSensitive(error instanceof Error ? error.message : String(error), 4000) });
       throw error;
     }
   }
@@ -183,7 +186,7 @@ export class ParallelService {
       const run = this.engine.repository.getRun(lane.runId);
       if (run.status === 'running') this.engine.repository.finishRun(run.id, 'failed', reason);
     }
-    return this.store.update(lane.id, { status: 'FAILED', error: reason.slice(0, 4000) });
+    return this.store.update(lane.id, { status: 'FAILED', error: redactSensitive(reason, 4000) });
   }
 
   requestIntegration(laneId: string): ParallelLane {
@@ -223,6 +226,10 @@ export class ParallelService {
     }
     const approval = this.engine.repository.listApprovals(lane.projectId).find(item => item.id === lane.approvalId);
     if (!approval) throw new CoreError('NOT_FOUND', 'Parallel integration approval not found');
+    const expectedAction = `parallel.integrate:${lane.id}:${lane.resultHead}`;
+    if (approval.projectId !== lane.projectId || approval.taskId !== lane.taskId || approval.action !== expectedAction) {
+      throw new CoreError('CONFLICT', 'Parallel integration approval is stale or bound to different state');
+    }
     if (approval.status === 'rejected') {
       return this.store.update(lane.id, {
         status: 'REVIEW', approvalId: null, targetHead: null, error: 'Parallel integration was rejected',
@@ -245,7 +252,7 @@ export class ParallelService {
     }
 
     lane = this.store.update(lane.id, { status: 'INTEGRATING', validation: [], error: null });
-    const merged = git.mergeNoCommit(lane.branchName);
+    const merged = git.mergeNoCommit(lane.resultHead!);
     if (!merged.ok) {
       if (git.mergeHead()) git.abortMerge();
       return this.store.update(lane.id, {
@@ -271,6 +278,8 @@ export class ParallelService {
     }
 
     try {
+      // Persist successful validation before committing so crash recovery has evidence.
+      lane = this.store.update(lane.id, { validation });
       const integrationCommit = git.commit(`parallel: integrate task ${lane.taskId.slice(0, 8)}`);
       const task = this.engine.repository.getTask(lane.taskId);
       if (task.status === 'reviewing') this.engine.repository.setTaskStatus(task.id, 'passed');
@@ -281,7 +290,7 @@ export class ParallelService {
       if (git.mergeHead()) git.abortMerge();
       return this.store.update(lane.id, {
         status: 'RECOVERY_REQUIRED', validation,
-        error: error instanceof Error ? error.message : String(error),
+        error: redactSensitive(error instanceof Error ? error.message : String(error), 4000),
       });
     }
   }
@@ -307,6 +316,12 @@ export class ParallelService {
     const currentHead = git.primary.head();
     if (currentHead && lane.targetHead && lane.resultHead
       && git.parent(currentHead, 1) === lane.targetHead && git.parent(currentHead, 2) === lane.resultHead) {
+      git.primary.requireClean();
+      if (lane.validation.length !== validationNames.length
+        || validationNames.some(name => lane.validation.filter(check => check.name === name && check.status === 'PASS' && check.exitCode === 0).length !== 1)
+        || testEvidenceFailure(lane.validation.find(check => check.name === 'test')?.output ?? '')) {
+        throw new CoreError('CONFLICT', 'Completed merge has no complete persisted QA evidence; manual review required');
+      }
       const task = this.engine.repository.getTask(lane.taskId);
       if (task.status === 'reviewing') this.engine.repository.setTaskStatus(task.id, 'passed');
       return this.store.update(lane.id, {

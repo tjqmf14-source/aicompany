@@ -6,6 +6,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { CoreError } from '../core/domain.js';
 import { CoreEngine } from '../core/engine.js';
+import { redactSensitive } from '../core/redaction.js';
 import { CodexAppServerProvider, resolveCodexJsPath } from '../codex/provider.js';
 import { CapabilityStore, type CapabilityUpsert } from './store.js';
 import {
@@ -404,13 +405,18 @@ export class CapabilityManagerService {
     if (operation.status !== 'APPROVAL_PENDING' && operation.status !== 'APPROVED') throw new CoreError('INVALID_TRANSITION', 'Install operation is not awaiting execution');
     const approval = this.engine.repository.listApprovals(operation.projectId).find(item => item.id === operation.approvalId);
     if (!approval) throw new CoreError('NOT_FOUND', 'Install approval not found');
+    const capability = this.store.get(operation.capabilityId);
+    const skillName = capability.name.startsWith('Skill:') ? safeSkillName(capability.name.slice('Skill:'.length)) : '';
+    if (!skillName || approval.projectId !== operation.projectId || approval.taskId !== null
+      || approval.action !== `capability.install:${capability.id}:${skillName}`) {
+      throw new CoreError('CONFLICT', 'Install approval is stale or bound to different state');
+    }
     if (approval.status === 'rejected') {
       this.store.patch(operation.capabilityId, { approvalState: 'REJECTED' });
       return this.store.updateOperation(operation.id, 'REJECTED', { error: 'User rejected installation' });
     }
     if (approval.status !== 'approved') throw new CoreError('CONFLICT', 'Install approval is still pending');
 
-    const capability = this.store.get(operation.capabilityId);
     if (capability.costState !== 'FREE_LOCAL' && capability.costState !== 'FREE_EXISTING_ACCOUNT') throw new CoreError('CONFLICT', 'ZERO-COST gate blocks installation');
     const source = this.store.latestSource(capability.id);
     if (!source || source.installMethod !== 'LOCAL_COPY') throw new CoreError('CONFLICT', 'Only reviewed LOCAL_COPY installation is supported');
@@ -475,9 +481,9 @@ export class CapabilityManagerService {
         } catch { /* Preserve user-modified destinations instead of deleting them. */ }
       }
       this.store.patch(capability.id, { verificationState: 'ERROR', runtimeState: 'ERROR' });
-      this.store.addCheck(capability.id, 'skill_install_verification', 'ERROR', error instanceof Error ? error.message : String(error));
+      this.store.addCheck(capability.id, 'skill_install_verification', 'ERROR', redactSensitive(error instanceof Error ? error.message : String(error), 4000));
       this.syncLegacy(operation.projectId, capability.name);
-      return this.store.updateOperation(operation.id, 'FAILED', { error: error instanceof Error ? error.message : String(error) });
+      return this.store.updateOperation(operation.id, 'FAILED', { error: redactSensitive(error instanceof Error ? error.message : String(error), 4000) });
     }
   }
 
@@ -538,6 +544,10 @@ export class CapabilityManagerService {
     if (operation.status !== 'APPROVAL_PENDING' && operation.status !== 'APPROVED') throw new CoreError('INVALID_TRANSITION', 'MCP verification operation is not executable');
     const approval = this.engine.repository.listApprovals(operation.projectId).find(item => item.id === operation.approvalId);
     if (!approval) throw new CoreError('NOT_FOUND', 'MCP verification approval not found');
+    if (approval.projectId !== operation.projectId || approval.taskId !== null
+      || approval.action !== `capability.verify_mcp:${operation.capabilityId}`) {
+      throw new CoreError('CONFLICT', 'MCP verification approval is stale or bound to different state');
+    }
     if (approval.status === 'rejected') {
       this.store.patch(operation.capabilityId, { approvalState: 'REJECTED' });
       return this.store.updateOperation(operation.id, 'REJECTED', { error: 'User rejected MCP verification' });
@@ -549,6 +559,10 @@ export class CapabilityManagerService {
     if (!source || !['OFFICIAL','VERIFIED_REPOSITORY','USER_APPROVED'].includes(source.trustState)) throw new CoreError('CONFLICT', 'MCP source trust changed');
     if (capability.costState !== 'FREE_LOCAL' && capability.costState !== 'FREE_EXISTING_ACCOUNT') throw new CoreError('CONFLICT', 'ZERO-COST gate blocks MCP verification');
     const definition = sourceDefinition(capability.name, source.location, source.metadata, capability.costState, source.trustState);
+    if (definition.command !== operation.preview.command || definition.configPath !== operation.preview.configPath
+      || definition.protocolMode !== operation.preview.protocolMode || JSON.stringify(definition.args) !== JSON.stringify(operation.preview.args)) {
+      throw new CoreError('CONFLICT', 'MCP definition changed after approval; request a new preview');
+    }
     operation = this.store.updateOperation(operation.id, 'RUNNING');
     this.store.patch(capability.id, { approvalState: 'APPROVED' });
     const result = await probeMcp(definition);

@@ -55,6 +55,12 @@ export class ParallelStore {
 
   create(lane: ParallelLane): ParallelLane {
     this.database.transaction(() => {
+      const active = this.active(lane.projectId);
+      if (active.length >= 8 || active.some(other => other.taskId === lane.taskId
+        || other.scopePaths.some(left => lane.scopePaths.some(right => {
+          const a = left.toLowerCase(), b = right.toLowerCase();
+          return a === b || a.startsWith(b + '/') || b.startsWith(a + '/');
+        })))) throw new CoreError('CONFLICT', 'Concurrent lane reservation conflicts with active work');
       this.db.prepare(`INSERT INTO parallel_lanes VALUES (
         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
       )`).run(
@@ -92,6 +98,15 @@ export class ParallelStore {
       updatedAt: now(),
     };
     this.database.transaction(() => {
+      const fresh = this.get(laneId);
+      if (JSON.stringify(fresh) !== JSON.stringify(current)) throw new CoreError('CONFLICT', 'Parallel state changed concurrently');
+      if (patch.status === 'INTEGRATING') {
+        if (current.status !== 'APPROVAL_PENDING') throw new CoreError('CONFLICT', 'Integration was already claimed');
+        if (this.active(current.projectId).some(other => other.id !== laneId && (other.status === 'INTEGRATING'
+          || (other.status === 'RECOVERY_REQUIRED' && other.targetHead !== null)))) {
+          throw new CoreError('CONFLICT', 'Another integration or recovery owns this repository');
+        }
+      }
       this.db.prepare(`UPDATE parallel_lanes SET
         plan_id = ?, role = ?, provider = ?, status = ?, branch_name = ?, worktree_path = ?,
         base_head = ?, base_branch = ?, run_id = ?, result_head = ?, changed_files_json = ?,

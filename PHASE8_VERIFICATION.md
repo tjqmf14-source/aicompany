@@ -17,7 +17,8 @@ The original verification records below are historical, not evidence for this fo
   Missing/partial evidence and exit-zero no-op test scripts cannot be PASS.
 - The top-level npm test runner enforces the same evidence rule and a minimum of
   144 regression tests. Tests remain real Git/SQLite/HTTP fixtures; synthetic child
-  summaries are used only to exercise the evidence parser's rejection paths.
+  summaries are used in controlled gate fixtures for acceptance/rejection paths;
+  they do not replace the real top-level regression execution.
 - SecurityStore rejects empty/partial PASS submissions, persists each completed
   check with its event, and retains partial evidence through interrupted recovery.
   Conditional writes prevent stale completion from overwriting INTERRUPTED state.
@@ -61,6 +62,21 @@ Count: 144 Phase 1–7 regressions + 43 Security suite tests + 11 cross-module
 Phase 8 hardening tests = 198. No original test was removed or skipped.
 One intermediate lint run rejected a control-character regular expression; it was
 replaced with explicit character validation and the subsequent lint run passed.
+
+### Post-commit delivery evidence
+
+- Implementation commit: `28314cd2cd3cabf3cb1d8a8caba140700385ea1c`, created
+  after the local gate and before opening the app in the browser.
+- PR #8 initial exact-HEAD CI: run `36312102765`, SUCCESS; 198 passed,
+  zero failed/cancelled/skipped/todo, and npm audit reported 0 vulnerabilities.
+- Local in-app browser smoke: dashboard connected to the real local API and
+  displayed the registered verification project. Command Center correctly showed
+  QA and Security Audit as NOT RUN and Release Ready as NO before app-side checks.
+  Validation navigation displayed unrecorded checks as NOT RUN; no browser error
+  logs were recorded. This is a UI smoke, not live provider execution.
+- This documentation follow-up must itself receive a fresh exact-HEAD PR CI pass
+  before merging. The final delivery report records the merged main SHA and its
+  independently successful push CI, rather than reusing this pre-merge run.
 
 ### Boundaries and recovery
 
